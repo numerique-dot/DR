@@ -18,15 +18,14 @@
   <div class="wrap topbar-inner">
     <a class="brand" href="/">
       <span class="brand-mark" aria-hidden="true">+</span>
-      <span class="brand-text">D.R&nbsp;DU<small>Clinique &amp; documents de santé</small></span>
+      <span class="brand-text">D.R&nbsp;DU<small>Traduction de documents médicaux</small></span>
     </a>
     <nav aria-label="Navigation principale">
-      <a href="/#praticiens">Praticiens</a>
       <a href="/#studio">Traduction IA</a>
       <a href="/#offres">Offres</a>
       <a href="/#faq">FAQ</a>
     </nav>
-    <a class="btn btn-primary btn-sm" href="/#praticiens">Prendre rendez-vous</a>
+    <a class="btn btn-primary btn-sm" href="/#studio">Traduire un document</a>
   </div>
 </header>
 <main id="contenu" class="section">
@@ -43,22 +42,29 @@
       <dt>Téléphone</dt><dd>+33 1 84 00 12 12</dd>
       <dt>Courriel</dt><dd>accueil@drdu.example</dd>
       <dt>Directeur de la publication</dt><dd>Le représentant légal de la société</dd>
+      <dt>Médecin donneur d'ordre</dt><dd>À préciser (mandat de traduction)</dd>
     </dl>
-    <p class="callout">Ces valeurs sont des valeurs d'exemple. Elles doivent être remplacées par les
-    informations réelles de la structure avant toute mise en ligne, de même que les
-    coordonnées de l'hébergeur et les numéros d'inscription à l'ordre des praticiens.</p>
+    <p class="callout">Ces valeurs sont des valeurs d'exemple. Elles doivent être remplacées par
+    les informations réelles de la structure avant toute mise en ligne (éditeur, SIRET,
+    hébergeur, identité du médecin donneur d'ordre) : voir les variables <code>SERVICE_*</code>
+    et <code>MANDATING_DOCTOR</code>.</p>
 
-    <h2>Hébergement</h2>
-    <p>Les données de santé sont hébergées par un prestataire certifié <strong>HDS</strong>
-    (hébergeur de données de santé) au sens de l'article L.1111-8 du code de la santé publique.
-    L'identité et les coordonnées de l'hébergeur sont communiquées sur demande à l'accueil.</p>
+    <h2>Nature de l'activité</h2>
+    <p>D.R DU est un <strong>service de traduction de documents médicaux</strong>, opéré
+    sur mandat d'un médecin qui en définit l'usage. Ce n'est ni un établissement de santé,
+    ni un cabinet médical : le service ne délivre aucune consultation, ne prend aucun
+    rendez-vous et n'exerce aucune activité de soin.</p>
 
-    <h2>Praticiens</h2>
-    <p>Les praticiens exerçant au sein de la clinique sont inscrits au tableau de l'Ordre
-    des médecins. Leur numéro RPPS figure sur leurs ordonnances. Les tarifs affichés
-    respectent l'obligation d'information sur les honoraires (article L.1111-3 du code
-    de la santé publique) ; le secteur conventionnel de chaque praticien est indiqué
-    sur sa fiche.</p>
+    <h2>Hébergement et absence de conservation</h2>
+    <p>Le service fonctionne <strong>sans rétention</strong> : le document que vous déposez
+    transite en mémoire, est traduit, puis abandonné. Aucune donnée de santé n'est stockée,
+    ce qui place le service hors du champ de l'obligation d'hébergement certifié
+    <strong>HDS</strong> de l'article L.1111-8 du code de la santé publique — obligation qui
+    porte sur l'hébergement de données de santé.</p>
+    <p>La fonction d'historique, qui conserverait les traductions, est <strong>désactivée</strong>.
+    Son activation suppose un contrat d'hébergement certifié HDS ; le logiciel refuse
+    d'ailleurs de démarrer si elle est activée sans cette attestation.</p>
+    <p>L'identité et les coordonnées de l'hébergeur du site sont communiquées sur demande.</p>
 
     <h2>Nature du service de traduction</h2>
     <p>Le studio de traduction est un service d'aide à la compréhension de documents.
@@ -72,7 +78,7 @@
 
     <h2>Signalement d'un contenu ou d'un incident</h2>
     <p>Tout contenu manifestement illicite ou tout incident de sécurité peut être signalé à
-    accueil@drdu.example. Les incidents affectant des données de santé font l'objet d'une
+    contact@drdu.example. Les incidents affectant des données de santé font l'objet d'une
     notification à la CNIL dans les 72 heures lorsque la réglementation l'exige.</p>
   </div>
 </main>

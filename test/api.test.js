@@ -135,9 +135,20 @@ describe("traduction et paliers", () => {
     assert.equal((await app.post("/api/translate", { target: "zh" })).status, 400);
   });
 
-  it("réserve l'historique aux membres", async () => {
+  it("ne conserve rien par défaut : l'historique est absent", async () => {
     const { status } = await app.get("/api/history");
-    assert.equal(status, 403, "un compte Essentiel connecté doit recevoir 403");
+    assert.equal(status, 404, "sans conservation activée, la route n'existe pas");
+  });
+
+  it("ne renvoie plus de praticiens dans la configuration", async () => {
+    const { body } = await app.get("/api/config");
+    assert.equal(body.doctors, undefined, "le service ne gère plus de rendez-vous");
+    assert.equal(body.historyEnabled, false);
+  });
+
+  it("n'expose plus la route des rendez-vous", async () => {
+    assert.equal((await app.get("/api/appointments")).status, 404);
+    assert.equal((await app.post("/api/appointments", { doctorId: "x" })).status, 404);
   });
 });
 
@@ -150,19 +161,10 @@ describe("abonnement", () => {
     const translation = await app.post("/api/translate", { ...textDocument(), target: "en" });
     assert.equal(translation.body.tier, "member");
     assert.ok(translation.body.cautions.length > 0, "la notice doit être produite pour un membre");
-    assert.ok(translation.body.historyId, "la traduction doit entrer dans l'historique");
-
-    const list = await app.get("/api/history");
-    assert.equal(list.status, 200);
-    assert.equal(list.body.length, 1);
-
-    const removed = await app.del(`/api/history/${list.body[0].id}`);
-    assert.equal(removed.status, 200);
-    assert.equal((await app.get("/api/history")).body.length, 0);
+    assert.equal(translation.body.historyId, null, "sans conservation activée, rien n'est enregistré");
 
     const portal = await app.post("/api/billing/portal");
     assert.equal(portal.body.user.tier, "free");
-    assert.equal((await app.get("/api/history")).status, 403);
   });
 
   it("refuse une double souscription", async () => {
@@ -182,51 +184,6 @@ describe("abonnement", () => {
     const { status } = await app.post("/api/billing/webhook", { id: "evt_1", type: "checkout.session.completed" });
     // Sans clé Stripe le service se déclare indisponible ; avec clé, la signature est exigée.
     assert.ok([400, 503].includes(status));
-  });
-});
-
-describe("rendez-vous", () => {
-  it("réserve un créneau, puis le retire des disponibilités", async () => {
-    security.resetRateLimits();
-    const before = await app.get("/api/config");
-    const doctor = before.body.doctors.find((d) => d.id === "vasseur");
-    const slot = doctor.slots[0];
-
-    const created = await app.post("/api/appointments", {
-      doctorId: "vasseur",
-      slot,
-      patientName: "Léa Martin",
-      email: "lea@example.com",
-    });
-    assert.equal(created.status, 201);
-    assert.match(created.body.reference, /^DRDU-[0-9A-F]{6}$/);
-
-    const again = await app.post("/api/appointments", {
-      doctorId: "vasseur",
-      slot,
-      patientName: "Autre",
-      email: "autre@example.com",
-    });
-    assert.equal(again.status, 409, "le même créneau ne peut pas être réservé deux fois");
-
-    const after = await app.get("/api/config");
-    assert.ok(!after.body.doctors.find((d) => d.id === "vasseur").slots.includes(slot));
-  });
-
-  it("valide les champs obligatoires et le praticien", async () => {
-    assert.equal((await app.post("/api/appointments", { doctorId: "fantome", slot: "Lun. 09:00" })).status, 400);
-    const missing = await app.post("/api/appointments", { doctorId: "moreau", slot: "Mar. 08:30" });
-    assert.equal(missing.status, 400);
-    assert.match(missing.body.error, /Champs manquants/);
-  });
-
-  it("liste les rendez-vous du seul compte connecté", async () => {
-    const mine = await app.get("/api/appointments");
-    assert.equal(mine.status, 200);
-    assert.ok(Array.isArray(mine.body));
-    const anonymous = await startServer();
-    assert.equal((await anonymous.get("/api/appointments")).status, 401);
-    await anonymous.close();
   });
 });
 
@@ -252,6 +209,7 @@ describe("limitation de débit", () => {
 describe("déconnexion", () => {
   it("invalide la session", async () => {
     await app.post("/api/auth/logout");
-    assert.equal((await app.get("/api/appointments")).status, 401);
+    assert.equal((await app.get("/api/auth/me")).body.user, null);
+    assert.equal((await app.post("/api/billing/checkout")).status, 401);
   });
 });

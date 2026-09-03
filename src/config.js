@@ -44,6 +44,17 @@ export const config = {
     portalReturnPath: "/#offres",
   },
 
+  features: {
+    /**
+     * Conserver les traductions dans un historique revient à stocker des
+     * données de santé : cela exige un hébergement certifié HDS. Désactivé par
+     * défaut, le service ne garde alors aucune donnée de santé au repos.
+     */
+    history: bool(env.HISTORY_ENABLED, false),
+    /** Attestation explicite que l'hébergement est certifié HDS. */
+    hdsHosting: bool(env.HDS_HOSTING_CERTIFIED, false),
+  },
+
   limits: {
     /** 12 Mo de corps JSON, soit environ 9 Mo de fichier après base64. */
     bodyBytes: Number(env.MAX_BODY_BYTES ?? 12 * 1024 * 1024),
@@ -55,19 +66,20 @@ export const config = {
   rateLimits: {
     auth: { windowMs: 15 * 60_000, max: 10 },
     translate: { windowMs: 60 * 60_000, max: 30 },
-    booking: { windowMs: 60 * 60_000, max: 10 },
     global: { windowMs: 60_000, max: 300 },
   },
 
-  clinic: {
+  service: {
     name: "D.R DU",
     address: "12 place de la République, 75011 Paris",
     phone: "+33 1 84 00 12 12",
-    email: "accueil@drdu.example",
-    siret: env.CLINIC_SIRET ?? "000 000 000 00000",
-    publisher: env.CLINIC_PUBLISHER ?? "Société D.R DU SAS",
-    host: env.CLINIC_HOST ?? "Hébergeur certifié HDS (à préciser)",
-    dpo: env.CLINIC_DPO ?? "dpo@drdu.example",
+    email: "contact@drdu.example",
+    siret: env.SERVICE_SIRET ?? "000 000 000 00000",
+    publisher: env.SERVICE_PUBLISHER ?? "Société D.R DU SAS",
+    host: env.SERVICE_HOST ?? "Hébergeur (à préciser)",
+    /** Médecin donneur d'ordre du service de traduction. */
+    mandatingDoctor: env.MANDATING_DOCTOR ?? "Médecin donneur d'ordre (à préciser)",
+    dpo: env.SERVICE_DPO ?? "dpo@drdu.example",
   },
 };
 
@@ -85,6 +97,17 @@ export function assertProductionReady() {
     if (!config.billing.webhookSecret) fatal.push("STRIPE_WEBHOOK_SECRET manquant.");
   }
   if (config.mail.transport === "log") warn.push("MAIL_TRANSPORT=log : aucun courriel ne partira réellement.");
+  // Conserver des traductions revient à stocker des données de santé :
+  // l'hébergement doit alors être certifié HDS.
+  if (config.features.history && !config.features.hdsHosting) {
+    fatal.push(
+      "HISTORY_ENABLED=true conserve des données de santé : exige HDS_HOSTING_CERTIFIED=true " +
+        "et un contrat d'hébergement certifié HDS.",
+    );
+  }
+  if (!config.features.history) {
+    warn.push("Historique désactivé : aucune donnée de santé conservée (mode sans rétention).");
+  }
   if (fatal.length) {
     throw new Error(`Configuration de production incomplète :\n  - ${fatal.join("\n  - ")}`);
   }

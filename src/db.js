@@ -70,6 +70,11 @@ const MIGRATIONS = [
       );
     `,
   },
+  {
+    id: 2,
+    name: "service de traduction seule : abandon des rendez-vous",
+    sql: `DROP TABLE IF EXISTS appointments;`,
+  },
 ];
 
 export function migrate() {
@@ -161,57 +166,6 @@ export const sessions = {
   },
   prune() {
     return db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(now()).changes;
-  },
-};
-
-/* ---------- Rendez-vous ---------- */
-
-export const appointments = {
-  bookedSlots(doctorId) {
-    return new Set(
-      db.prepare("SELECT slot FROM appointments WHERE doctor_id = ?").all(doctorId).map((row) => row.slot),
-    );
-  },
-  allBooked() {
-    return db.prepare("SELECT doctor_id, slot FROM appointments").all();
-  },
-  forUser(userId) {
-    return db
-      .prepare("SELECT * FROM appointments WHERE user_id = ? ORDER BY created_at DESC")
-      .all(userId);
-  },
-  /** La contrainte UNIQUE(doctor_id, slot) fait office de verrou : deux
-   *  réservations simultanées du même créneau ne peuvent pas passer. */
-  create(input) {
-    const id = uuid();
-    const reference = `DRDU-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
-    try {
-      db.prepare(
-        `INSERT INTO appointments (id, reference, user_id, doctor_id, doctor_name, speciality, slot,
-          patient_name, email, phone, reason, tier, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
-        id,
-        reference,
-        input.userId ?? null,
-        input.doctorId,
-        input.doctorName,
-        input.speciality,
-        input.slot,
-        input.patientName,
-        input.email,
-        input.phone ?? null,
-        input.reason ?? null,
-        input.tier,
-        now(),
-      );
-    } catch (error) {
-      if (String(error.message).includes("UNIQUE")) {
-        throw Object.assign(new Error("Créneau plus disponible."), { status: 409 });
-      }
-      throw error;
-    }
-    return db.prepare("SELECT * FROM appointments WHERE id = ?").get(id);
   },
 };
 

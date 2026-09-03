@@ -18,15 +18,14 @@
   <div class="wrap topbar-inner">
     <a class="brand" href="/">
       <span class="brand-mark" aria-hidden="true">+</span>
-      <span class="brand-text">D.R&nbsp;DU<small>Clinique &amp; documents de santé</small></span>
+      <span class="brand-text">D.R&nbsp;DU<small>Traduction de documents médicaux</small></span>
     </a>
     <nav aria-label="Navigation principale">
-      <a href="/#praticiens">Praticiens</a>
       <a href="/#studio">Traduction IA</a>
       <a href="/#offres">Offres</a>
       <a href="/#faq">FAQ</a>
     </nav>
-    <a class="btn btn-primary btn-sm" href="/#praticiens">Prendre rendez-vous</a>
+    <a class="btn btn-primary btn-sm" href="/#studio">Traduire un document</a>
   </div>
 </header>
 <main id="contenu" class="section">
@@ -43,21 +42,23 @@
     <table class="glossary">
       <thead><tr><th>Donnée</th><th>Finalité</th><th>Base légale</th><th>Conservation</th></tr></thead>
       <tbody>
-        <tr><td>Nom, courriel, téléphone</td><td>Prise de rendez-vous et confirmation</td><td>Exécution du contrat</td><td>3 ans après le dernier contact</td></tr>
-        <tr><td>Motif de consultation (facultatif)</td><td>Préparation de la consultation</td><td>Consentement</td><td>Supprimé après la consultation</td></tr>
+        <tr><td>Nom et courriel</td><td>Compte et correspondance</td><td>Exécution du contrat</td><td>3 ans après le dernier contact</td></tr>
         <tr><td>Mot de passe (dérivé par scrypt)</td><td>Sécurité du compte</td><td>Intérêt légitime</td><td>Durée du compte</td></tr>
         <tr><td>Document de santé déposé</td><td>Production de la traduction</td><td>Consentement explicite (art. 9.2.a RGPD)</td><td><strong>Non conservé</strong> : traité en mémoire puis abandonné</td></tr>
-        <tr><td>Traduction et notice (membres)</td><td>Historique de vos documents</td><td>Consentement</td><td>50 documents maximum, supprimables à l'unité</td></tr>
+        <tr><td>Traduction et notice</td><td>Restitution à l'écran</td><td>Consentement explicite</td><td><strong>Non conservée</strong> — la fonction d'historique est désactivée</td></tr>
         <tr><td>Statut d'abonnement</td><td>Facturation</td><td>Exécution du contrat</td><td>10 ans (obligations comptables)</td></tr>
         <tr><td>Journaux techniques</td><td>Sécurité et diagnostic</td><td>Intérêt légitime</td><td>12 mois</td></tr>
       </tbody>
     </table>
 
-    <h2>Le document déposé n'est pas stocké</h2>
+    <h2>Rien de médical n'est conservé</h2>
     <p>Le fichier que vous déposez n'est jamais écrit sur disque : il transite en mémoire,
-    est transmis au modèle de traduction, puis abandonné à la fin de la requête. Seul le
-    résultat vous est renvoyé — et, si vous êtes membre, enregistré dans votre historique
-    jusqu'à ce que vous le supprimiez.</p>
+    est transmis au modèle de traduction, puis abandonné à la fin de la requête. La traduction
+    vous est renvoyée à l'écran et n'est pas enregistrée non plus : <strong>la fonction
+    d'historique est désactivée sur ce service</strong>. Fermez la page et il ne reste, de
+    votre document comme de sa traduction, aucune trace chez nous.</p>
+    <p>Si elle était activée un jour — ce qui suppose un hébergement certifié HDS — la
+    conservation resterait un choix explicite, coche par coche, à chaque traduction.</p>
 
     <h2>Sous-traitants</h2>
     <ul class="plain-list">
@@ -65,8 +66,8 @@
       par l'API ne servent pas à l'entraînement des modèles.</li>
       <li><strong>Stripe</strong> — paiement de l'abonnement. Nous ne voyons ni ne stockons
       aucune coordonnée bancaire.</li>
-      <li><strong>Hébergeur certifié HDS</strong> — hébergement de la base et des sauvegardes,
-      en France.</li>
+      <li><strong>Hébergeur du site</strong> — comptes et abonnements uniquement, aucune
+      donnée de santé n'étant stockée.</li>
     </ul>
     <p>Aucun transfert hors Union européenne n'a lieu sans clauses contractuelles types.</p>
 
@@ -81,8 +82,9 @@
     <p>Vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation,
     d'opposition et de portabilité. Écrivez à dpo@drdu.example : nous répondons sous un mois.
     Vous pouvez également introduire une réclamation auprès de la <strong>CNIL</strong>
-    (3 place de Fontenoy, 75007 Paris, cnil.fr). Vos documents peuvent être supprimés
-    immédiatement depuis « Mes documents traduits ».</p>
+    (3 place de Fontenoy, 75007 Paris, cnil.fr). Comme aucune donnée de santé n'est conservée,
+    une demande d'effacement ne porte que sur votre compte : sa suppression est immédiate
+    sur simple demande.</p>
 
     <h2>Sécurité</h2>
     <p>Chiffrement du transport en HTTPS, mots de passe dérivés par scrypt avec sel,

@@ -7,8 +7,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { log } from "./logger.js";
-import { DOCTORS } from "./doctors.js";
-import { appointments, history, migrate, sessions, users } from "./db.js";
+import { history, migrate, sessions, users } from "./db.js";
 import {
   authenticate,
   createUser,
@@ -20,7 +19,7 @@ import {
   startSession,
 } from "./auth.js";
 import { applyEvent, portalUrl, startCheckout, verifySignature } from "./billing.js";
-import { appointmentConfirmation, welcome } from "./mailer.js";
+import { welcome } from "./mailer.js";
 import { LANGUAGES, translateDocument } from "./ai.js";
 import { clientIp, rateLimit, sameOrigin, securityHeaders, startRateLimitCleanup } from "./security.js";
 
@@ -165,16 +164,6 @@ async function notFound(req, res) {
   return res.end("Page introuvable");
 }
 
-/* ---------- Praticiens ---------- */
-
-function doctorsWithAvailability() {
-  const taken = new Set(appointments.allBooked().map((row) => `${row.doctor_id}|${row.slot}`));
-  return DOCTORS.map((doctor) => ({
-    ...doctor,
-    slots: doctor.slots.filter((slot) => !taken.has(`${doctor.id}|${slot}`)),
-  }));
-}
-
 /* ---------- Gardes ---------- */
 
 function requireUser(req) {
@@ -187,6 +176,16 @@ function requireMember(req) {
   const user = requireUser(req);
   if (user.tier !== "member") throw Object.assign(new Error("Formule Membre requise."), { status: 403 });
   return user;
+}
+
+/** L'historique n'existe que si la conservation est activée (hébergement HDS). */
+function requireHistory(req) {
+  if (!config.features.history) {
+    throw Object.assign(new Error("La conservation des documents est désactivée sur ce service."), {
+      status: 404,
+    });
+  }
+  return requireMember(req);
 }
 
 function guard(name, req) {
@@ -250,41 +249,9 @@ async function handleTranslate(req, res) {
   const result = await translateDocument({ tier, target, fileName, mediaType, dataBase64: body.dataBase64, text });
   log.info("document traduit", { tier, target, ms: Date.now() - started, mode: result.mode });
 
-  const saved = tier === "member" && body.save !== false ? history.save(user.id, result) : null;
+  const keep = config.features.history && tier === "member" && body.save === true;
+  const saved = keep ? history.save(user.id, result) : null;
   return json(res, 200, { ...result, historyId: saved?.id ?? null });
-}
-
-async function handleAppointment(req, res) {
-  guard("booking", req);
-  const body = await readBody(req);
-  const user = currentUser(req);
-  const doctor = DOCTORS.find((d) => d.id === body.doctorId);
-  const missing = ["patientName", "email", "slot"].filter((field) => !String(body[field] ?? "").trim());
-  if (!doctor) return json(res, 400, { error: "Praticien inconnu." });
-  if (missing.length) return json(res, 400, { error: `Champs manquants : ${missing.join(", ")}.` });
-  if (!doctor.slots.includes(body.slot)) return json(res, 409, { error: "Créneau plus disponible." });
-
-  const appointment = appointments.create({
-    userId: user?.id ?? null,
-    doctorId: doctor.id,
-    doctorName: doctor.name,
-    speciality: doctor.speciality,
-    slot: body.slot,
-    patientName: String(body.patientName).slice(0, 120),
-    email: String(body.email).slice(0, 160),
-    phone: String(body.phone ?? "").slice(0, 40),
-    reason: String(body.reason ?? "").slice(0, 1000),
-    tier: user?.tier === "member" ? "member" : "free",
-  });
-  await appointmentConfirmation(appointment);
-  log.info("rendez-vous créé", { reference: appointment.reference, doctorId: doctor.id });
-  return json(res, 201, {
-    id: appointment.id,
-    reference: appointment.reference,
-    doctorName: appointment.doctor_name,
-    slot: appointment.slot,
-    email: appointment.email,
-  });
 }
 
 async function handleCheckout(req, res) {
@@ -342,6 +309,7 @@ export function createApp() {
           version: process.env.APP_VERSION ?? "dev",
           ai: config.ai.configured ? "live" : "demo",
           billing: config.billing.provider,
+          retention: config.features.history ? "historique actif" : "sans rétention",
         });
       }
 
@@ -351,7 +319,7 @@ export function createApp() {
           aiMode: config.ai.configured ? "live" : "demo",
           billingMode: config.billing.provider,
           languages: LANGUAGES,
-          doctors: doctorsWithAvailability(),
+          historyEnabled: config.features.history,
           user: publicUser(user),
         });
       }
@@ -367,19 +335,15 @@ export function createApp() {
       if (req.method === "POST" && pathname === "/api/billing/portal") return await handlePortal(req, res);
 
       if (req.method === "GET" && pathname === "/api/history") {
-        return json(res, 200, history.forUser(requireMember(req).id));
+        return json(res, 200, history.forUser(requireHistory(req).id));
       }
       if (req.method === "DELETE" && pathname.startsWith("/api/history/")) {
-        const user = requireMember(req);
+        const user = requireHistory(req);
         const id = pathname.slice("/api/history/".length);
         if (!history.remove(user.id, id)) return json(res, 404, { error: "Document introuvable." });
         return json(res, 200, { ok: true });
       }
 
-      if (req.method === "GET" && pathname === "/api/appointments") {
-        return json(res, 200, appointments.forUser(requireUser(req).id));
-      }
-      if (req.method === "POST" && pathname === "/api/appointments") return await handleAppointment(req, res);
       if (req.method === "POST" && pathname === "/api/translate") return await handleTranslate(req, res);
 
       if (pathname.startsWith("/api/")) return json(res, 404, { error: "Route inconnue." });

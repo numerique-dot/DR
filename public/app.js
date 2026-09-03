@@ -11,6 +11,7 @@ const state = {
   history: [],
   historyId: null,
   billingMode: "stub",
+  historyEnabled: false,
 };
 
 /* ---------- Amorçage : praticiens + mode IA ---------- */
@@ -19,7 +20,7 @@ async function boot() {
     const config = await (await fetch("/api/config")).json();
     state.user = config.user;
     state.billingMode = config.billingMode;
-    renderDoctors(config.doctors);
+    state.historyEnabled = config.historyEnabled;
     renderAccount();
     const badge = $("#ai-mode");
     const modes = [config.aiMode === "live" ? "IA connectée · Claude" : "Mode démonstration (aucune clé API)"];
@@ -49,79 +50,6 @@ async function handleBillingReturn() {
   }
   notify("Paiement enregistré. L'activation peut prendre quelques instants — rechargez la page.");
 }
-
-function renderDoctors(doctors) {
-  const grid = $("#doctor-grid");
-  grid.innerHTML = "";
-  for (const doctor of doctors) {
-    const card = document.createElement("article");
-    card.className = "doctor";
-    const full = doctor.slots.length === 0;
-    card.innerHTML = `
-      <div class="doctor-top">
-        <span class="doctor-monogram" aria-hidden="true">${escapeHtml(monogram(doctor.name))}</span>
-        <div>
-          <p class="spec">${escapeHtml(doctor.speciality)}</p>
-          <h3>${escapeHtml(doctor.name)}</h3>
-        </div>
-      </div>
-      <p class="meta">${escapeHtml(doctor.address)}<br />${escapeHtml(doctor.sector)}</p>
-      <div class="tags">${doctor.languages.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>
-      <div class="slots">${
-        full
-          ? '<span class="none">Complet cette semaine</span>'
-          : doctor.slots.map((s) => `<span>${escapeHtml(s)}</span>`).join("")
-      }</div>
-      <button class="btn btn-ghost btn-sm" type="button"${full ? " disabled" : ""}>${
-        full ? "Aucun créneau" : "Réserver"
-      }</button>`;
-    if (!full) card.querySelector("button").addEventListener("click", () => openBooking(doctor));
-    grid.append(card);
-  }
-}
-
-/* ---------- Réservation ---------- */
-const dialog = $("#booking");
-function openBooking(doctor) {
-  const form = $("#booking-form");
-  form.reset();
-  $("#booking-error").hidden = true;
-  form.elements.doctorId.value = doctor.id;
-  $("#booking-doctor").textContent = `${doctor.name} — ${doctor.speciality}`;
-  form.elements.slot.innerHTML = doctor.slots
-    .map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`)
-    .join("");
-  dialog.showModal();
-}
-
-$("#booking-form").addEventListener("submit", async (event) => {
-  const form = event.target;
-  if (form.returnValue === "cancel" || event.submitter?.value === "cancel") return;
-  event.preventDefault();
-  const payload = Object.fromEntries(new FormData(form).entries());
-  payload.tier = selectedTier();
-  const button = $("#booking-submit");
-  button.disabled = true;
-  try {
-    const response = await fetch("/api/appointments", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error ?? "Réservation impossible.");
-    dialog.close();
-    alert(
-      `Rendez-vous confirmé.\n\n${data.doctorName} — ${data.slot}\nRéférence : ${data.reference}\nUn courriel de confirmation part à ${data.email}.`,
-    );
-  } catch (error) {
-    const box = $("#booking-error");
-    box.textContent = error.message;
-    box.hidden = false;
-  } finally {
-    button.disabled = false;
-  }
-});
 
 /* ---------- Dépôt de fichier ---------- */
 const dropzone = $("#dropzone");
@@ -190,8 +118,11 @@ function renderAccount() {
   if (isMember) memberRadio.checked = true;
   else freeRadio.checked = true;
 
-  $("#historique").hidden = !isMember;
-  if (isMember) loadHistory();
+  const saveField = document.querySelector("#save-field");
+  if (saveField) saveField.hidden = !(isMember && state.historyEnabled);
+  const showHistory = isMember && state.historyEnabled;
+  $("#historique").hidden = !showHistory;
+  if (showHistory) loadHistory();
   else {
     state.history = [];
     state.historyId = null;
@@ -394,6 +325,8 @@ $("#translate-form").addEventListener("submit", async (event) => {
       target,
       fileName: state.file.name,
       mediaType: state.file.type,
+      // Sans coche explicite, rien n'est conservé.
+      save: state.historyEnabled && document.querySelector("#save-history")?.checked === true,
     };
     if (isTextFile(state.file)) payload.text = await state.file.text();
     else payload.dataBase64 = await toBase64(state.file);
@@ -408,7 +341,7 @@ $("#translate-form").addEventListener("submit", async (event) => {
     state.result = data;
     state.activeTab = "translation";
     renderResult(data);
-    if (data.tier === "member") loadHistory();
+    if (data.tier === "member" && state.historyEnabled) loadHistory();
   } catch (error) {
     showError(error.message);
   } finally {
@@ -549,15 +482,6 @@ function escapeHtml(value) {
   return escapeText(value).replace(/[&<>"']/g, (char) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char],
   );
-}
-
-function monogram(name) {
-  return name
-    .replace(/^(Dr|Docteur|Pr)\s+/i, "")
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
 }
 
 /* La barre supérieure ne prend son filet qu'une fois la page défilée. */
