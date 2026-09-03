@@ -46,13 +46,17 @@ export const config = {
 
   features: {
     /**
-     * Conserver les traductions dans un historique revient à stocker des
-     * données de santé : cela exige un hébergement certifié HDS. Désactivé par
-     * défaut, le service ne garde alors aucune donnée de santé au repos.
+     * Conservation des traductions de documents. Désactivée par défaut : les
+     * documents déposés dans l'outil peuvent contenir n'importe quoi (contrat,
+     * bulletin de paie, courrier médical), et ce que l'on ne garde pas ne peut
+     * pas fuiter. À n'activer qu'avec une raison et une politique de purge.
      */
     history: bool(env.HISTORY_ENABLED, false),
-    /** Attestation explicite que l'hébergement est certifié HDS. */
-    hdsHosting: bool(env.HDS_HOSTING_CERTIFIED, false),
+    /**
+     * Inscription des commerçants publiée immédiatement. Passer à false impose
+     * une validation manuelle (statut « pending ») avant l'apparition au catalogue.
+     */
+    merchantAutoApprove: bool(env.MERCHANT_AUTO_APPROVE, true),
   },
 
   limits: {
@@ -65,7 +69,9 @@ export const config = {
   /** Fenêtres de limitation de débit, par adresse IP. */
   rateLimits: {
     auth: { windowMs: 15 * 60_000, max: 10 },
-    translate: { windowMs: 60 * 60_000, max: 30 },
+    translate: { windowMs: 60 * 60_000, max: 400 },
+    message: { windowMs: 60 * 60_000, max: 120 },
+    booking: { windowMs: 60 * 60_000, max: 20 },
     global: { windowMs: 60_000, max: 300 },
   },
 
@@ -97,16 +103,13 @@ export function assertProductionReady() {
     if (!config.billing.webhookSecret) fatal.push("STRIPE_WEBHOOK_SECRET manquant.");
   }
   if (config.mail.transport === "log") warn.push("MAIL_TRANSPORT=log : aucun courriel ne partira réellement.");
-  // Conserver des traductions revient à stocker des données de santé :
-  // l'hébergement doit alors être certifié HDS.
-  if (config.features.history && !config.features.hdsHosting) {
-    fatal.push(
-      "HISTORY_ENABLED=true conserve des données de santé : exige HDS_HOSTING_CERTIFIED=true " +
-        "et un contrat d'hébergement certifié HDS.",
+  if (config.features.history) {
+    warn.push(
+      "HISTORY_ENABLED=true : les traductions de documents sont conservées. " +
+        "Vérifiez que la politique de conservation et l'information des utilisateurs suivent.",
     );
-  }
-  if (!config.features.history) {
-    warn.push("Historique désactivé : aucune donnée de santé conservée (mode sans rétention).");
+  } else {
+    warn.push("Historique désactivé : aucun document ni traduction conservés.");
   }
   if (fatal.length) {
     throw new Error(`Configuration de production incomplète :\n  - ${fatal.join("\n  - ")}`);

@@ -38,15 +38,15 @@ export function welcome(user) {
     subject: "Bienvenue chez D.R DU",
     text: `Bonjour ${user.name},
 
-Votre compte est créé. Vous pouvez déposer vos documents de santé et en obtenir
-la traduction en chinois, en anglais ou en français.
+Votre compte est créé. Vous pouvez réserver auprès des professionnels inscrits,
+échanger avec eux dans votre langue, et faire traduire vos documents.
 
 Rappel : le document que vous déposez n'est pas conservé. Il est traité en
 mémoire, traduit, puis abandonné.
 
 ${
   user.tier === "member"
-    ? "Votre formule Membre est active : chaque traduction est accompagnée de ses points de vigilance (posologie, interactions, valeurs hors normes, échéances)."
+    ? "Votre formule Membre est active : chaque traduction de document est accompagnée de ses points de vigilance (montants, échéances, engagements, conditions de résiliation)."
     : "La formule Essentiel rend la traduction fidèle du document. La formule Membre y ajoute les points de vigilance."
 }
 
@@ -82,6 +82,56 @@ Votre abonnement est terminé. Votre compte reste actif en formule Essentiel :
 les traductions restent gratuites, sans les points de vigilance.
 
 Vos documents déjà traduits demeurent dans votre historique.
+
+${config.service.name}`,
+  });
+}
+
+/* ---------- Réservations ---------- */
+
+const euros = (cents) => (cents / 100).toFixed(2).replace(".", ",");
+const moment = (iso, locale = "fr-FR") =>
+  new Date(iso).toLocaleString(locale, { dateStyle: "full", timeStyle: "short" });
+
+export function bookingConfirmation(booking, customer) {
+  return send({
+    to: customer.email,
+    subject: `Réservation confirmée — ${booking.merchant?.name ?? ""} (${booking.reference})`,
+    text: `Bonjour ${customer.name},
+
+Votre réservation est confirmée.
+
+  Établissement : ${booking.merchant?.name ?? ""}
+  Prestation    : ${booking.service?.name ?? ""} (${booking.service?.durationMin ?? "?"} min, ${euros(booking.service?.priceCents ?? 0)} €)
+  Date          : ${moment(booking.startsAt)}
+  Adresse       : ${booking.merchant?.address ?? ""}, ${booking.merchant?.city ?? ""}
+  Téléphone     : ${booking.merchant?.phone ?? ""}
+  Référence     : ${booking.reference}
+${booking.note ? `\n  Votre précision : ${booking.note}` : ""}
+
+Pour annuler, rendez-vous dans « Mes réservations » sur ${config.publicUrl}.
+L'établissement peut vous écrire depuis la plateforme : les messages sont
+traduits dans votre langue.
+
+${config.service.name}`,
+  });
+}
+
+export function bookingCancelled(booking) {
+  const byMerchant = booking.cancelledBy === "merchant";
+  return send({
+    to: booking.customer?.email ?? "",
+    subject: `Réservation annulée — ${booking.reference}`,
+    text: `Bonjour ${booking.customer?.name ?? ""},
+
+La réservation ${booking.reference} du ${moment(booking.startsAt)} chez
+${booking.merchant?.name ?? ""} est annulée${byMerchant ? " par l'établissement" : ""}.
+
+${
+  byMerchant
+    ? `Vous pouvez choisir un autre créneau sur ${config.publicUrl}, ou joindre l'établissement au ${booking.merchant?.phone ?? ""}.`
+    : "Le créneau est de nouveau disponible pour d'autres clients."
+}
 
 ${config.service.name}`,
   });

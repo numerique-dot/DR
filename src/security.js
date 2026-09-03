@@ -83,6 +83,16 @@ export function resetRateLimits() {
 }
 
 /**
+ * Oublie les tentatives comptées pour cette règle et cette adresse. Appelé
+ * après une authentification réussie : c'est l'échec répété qui doit être
+ * freiné, pas l'usage normal — plusieurs personnes peuvent partager une même
+ * adresse IP (bureau, réseau mobile) et n'ont pas à se pénaliser entre elles.
+ */
+export function forgetRateLimit(name, req) {
+  buckets.delete(`${name}:${clientIp(req)}`);
+}
+
+/**
  * Protection CSRF : le cookie de session est en SameSite=Lax, ce qui bloque
  * déjà les envois croisés, mais on vérifie l'origine des requêtes mutantes
  * pour couvrir les navigateurs anciens et les clients exotiques.

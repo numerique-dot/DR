@@ -28,7 +28,7 @@ const MEMBER_SCHEMA = {
     document_type: {
       type: "string",
       description:
-        "Nature du document dans la langue cible : ordonnance, compte rendu, résultat de laboratoire, courrier, devis, etc.",
+        "Nature du document dans la langue cible : devis, contrat, bail, facture, courrier administratif, compte rendu, etc.",
     },
     translation: {
       type: "string",
@@ -42,7 +42,7 @@ const MEMBER_SCHEMA = {
     cautions: {
       type: "array",
       description:
-        "Points de vigilance (注意事项) : posologie, interactions, contre-indications, valeurs hors normes, délais à respecter.",
+        "Points de vigilance (注意事项) : montants, échéances, engagements, conditions de résiliation, pièces à fournir, clauses inhabituelles.",
       items: {
         type: "object",
         additionalProperties: false,
@@ -56,7 +56,7 @@ const MEMBER_SCHEMA = {
     },
     glossary: {
       type: "array",
-      description: "Termes médicaux expliqués en langage courant.",
+      description: "Termes techniques ou juridiques expliqués en langage courant.",
       items: {
         type: "object",
         additionalProperties: false,
@@ -70,35 +70,35 @@ const MEMBER_SCHEMA = {
     },
     questions_for_doctor: {
       type: "array",
-      description: "Questions à poser au praticien lors du prochain rendez-vous.",
+      description: "Questions à poser à l'émetteur du document ou au professionnel concerné.",
       items: { type: "string" },
     },
     follow_up: {
       type: "array",
-      description: "Actions de suivi datées ou conditionnelles (examens, renouvellement, surveillance).",
+      description: "Actions de suivi datées ou conditionnelles (pièce à envoyer, échéance, relance, renouvellement).",
       items: { type: "string" },
     },
   },
 };
 
-const FREE_SYSTEM = `Tu es traducteur assermenté de documents médicaux pour la clinique D.R DU.
+const FREE_SYSTEM = `Tu es traducteur assermenté de documents pour la plateforme D.R DU (devis, contrats, courriers administratifs, factures, comptes rendus).
 
 Règles absolues :
 - Tu produis UNIQUEMENT la traduction fidèle et intégrale du document fourni.
-- Tu conserves la structure d'origine : titres, sections, tableaux (en texte), listes, dates, unités, posologies, valeurs de laboratoire et leurs bornes de référence.
+- Tu conserves la structure d'origine : titres, sections, tableaux (en texte), listes, dates, montants, unités, numéros de référence et mentions légales.
 - Tu ne transformes pas les unités et tu ne corriges pas le document.
 - Tu n'ajoutes AUCUN commentaire, AUCUN résumé, AUCUNE explication, AUCUN point de vigilance, AUCUN conseil médical, AUCUN avertissement.
 - Si un passage est illisible, tu écris [illisible] à sa place, sans autre commentaire.
 - Tu réponds en texte brut, sans balise de code ni préambule.`;
 
-const MEMBER_SYSTEM = `Tu es traducteur médical et pharmacien conseil pour la clinique D.R DU, au service d'un patient membre.
+const MEMBER_SYSTEM = `Tu es traducteur et conseiller de lecture pour la plateforme D.R DU, au service d'un abonné qui doit comprendre un document reçu dans une langue qu'il ne lit pas.
 
 Tu rends la traduction fidèle et intégrale du document, puis tu l'éclaires :
-- « cautions » (注意事项) : posologie et durée de traitement, prises à jeun ou non, interactions et associations à éviter, contre-indications, effets indésirables à surveiller, valeurs de laboratoire hors normes, délais et échéances à ne pas manquer. Sévérité « urgent » réservée aux situations exigeant un contact médical rapide.
+- « cautions » (注意事项) : montants et modalités de paiement, échéances et délais à ne pas manquer, durée d'engagement et reconduction, conditions de résiliation, pénalités, clauses inhabituelles, pièces à fournir. Sévérité « urgent » réservée à ce qui expose à une perte de droit ou à une pénalité si l'on n'agit pas vite.
 - « glossary » : les termes techniques expliqués simplement.
 - « questions_for_doctor » et « follow_up » : concrets et actionnables.
 
-Contraintes : tu restes strictement dans le contenu du document, tu ne poses aucun diagnostic et tu n'inventes aucune valeur. Toute la réponse est rédigée dans la langue cible demandée, sauf les termes source du glossaire. Si le document ne permet pas de remplir une rubrique, renvoie une liste vide.`;
+Contraintes : tu restes strictement dans le contenu du document, tu ne donnes aucun conseil juridique ou médical et tu n'inventes aucune valeur. Toute la réponse est rédigée dans la langue cible demandée, sauf les termes source du glossaire. Si le document ne permet pas de remplir une rubrique, renvoie une liste vide.`;
 
 let client = null;
 function getClient() {

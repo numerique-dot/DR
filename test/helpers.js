@@ -62,6 +62,7 @@ export async function startServer() {
     jar,
     get: (route, options) => request("GET", route, options),
     post: (route, body, options) => request("POST", route, { body, ...options }),
+    put: (route, body, options) => request("PUT", route, { body, ...options }),
     del: (route, options) => request("DELETE", route, options),
     close: () => new Promise((resolve) => server.close(resolve)),
   };

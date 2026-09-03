@@ -32,6 +32,8 @@ export function publicUser(user) {
     email: user.email,
     name: user.name,
     tier: user.tier,
+    role: user.role ?? "customer",
+    locale: user.locale ?? "fr",
     subscriptionStatus: user.subscription_status ?? null,
     currentPeriodEnd: user.current_period_end ?? null,
   };
