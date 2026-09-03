@@ -1,0 +1,86 @@
+{
+  "zh": {
+    "document_type": "处方（法国，Amoxicilline 与 Ibuprofène）",
+    "translation": "DR DU 诊所 — 巴黎第十一区 共和广场 12 号\n主治医师：Dr. Claire Vasseur（全科医学，RPPS 10100488213）\n日期：2026年3月4日\n\n患者：MARTIN Léa，出生日期 1990年6月12日\n\n处方：\n1. AMOXICILLINE 1 g，可分散片剂 — 每日 2 次，每次 1 片，早晚随餐服用，连续 6 天。\n2. IBUPROFÈNE 400 mg — 疼痛时服用 1 片，每 8 小时最多 1 次，随餐服用，最多 3 天。\n3. 复查：若 48 小时后仍持续发热，请再次就诊。\n\n检查申请：血常规 + C 反应蛋白（CRP），于治疗第 7 天进行。\n\n医师签名及印章",
+    "member": {
+      "summary": "这是一张为期 6 天的抗生素处方，同时按需服用消炎止痛药，并要求在治疗第 7 天复查血常规与 CRP。若 48 小时后仍发热，需要再次就诊。",
+      "cautions": [
+        { "severity": "attention", "title": "抗生素必须服完整个疗程", "detail": "AMOXICILLINE 需连服 6 天，即使症状提前好转也不要自行停药，否则可能复发或产生耐药。" },
+        { "severity": "attention", "title": "IBUPROFÈNE 有服用上限", "detail": "每 8 小时最多 1 片，每日不超过 3 片，连续服用不超过 3 天；必须随餐服用以减少胃部不适。" },
+        { "severity": "urgent", "title": "48 小时后仍发热须就医", "detail": "处方明确要求：若 48 小时后体温仍未下降，请立即再次预约就诊，不要继续等待。" },
+        { "severity": "info", "title": "第 7 天的抽血不可遗漏", "detail": "血常规与 CRP 安排在治疗第 7 天，用于确认感染是否已受控；请提前预约实验室。" }
+      ],
+      "glossary": [
+        { "source": "Amoxicilline", "target": "阿莫西林", "explanation": "青霉素类抗生素，用于治疗细菌感染。对青霉素过敏者禁用。" },
+        { "source": "CRP (protéine C-réactive)", "target": "C 反应蛋白", "explanation": "反映体内炎症程度的血液指标，数值下降通常说明感染在好转。" },
+        { "source": "Comprimé dispersible", "target": "可分散片", "explanation": "可在水中溶解后服用的片剂。" }
+      ],
+      "questions_for_doctor": [
+        "我对青霉素类药物是否有过敏史需要重新确认？",
+        "服用抗生素期间可以饮酒或服用其他止痛药吗？",
+        "如果出现皮疹或腹泻，应该停药还是继续？"
+      ],
+      "follow_up": [
+        "3月4日起连续 6 天，每日早晚各 1 片 AMOXICILLINE。",
+        "3月6日：若仍发热，预约复诊。",
+        "3月10日（治疗第 7 天）：完成血常规 + CRP 抽血。"
+      ]
+    }
+  },
+  "en": {
+    "document_type": "Prescription (France — amoxicillin and ibuprofen)",
+    "translation": "D.R DU Clinic — 12 place de la République, Paris 11\nAttending physician: Dr Claire Vasseur (general practice, RPPS 10100488213)\nDate: 4 March 2026\n\nPatient: MARTIN Léa, born 12 June 1990\n\nPrescription:\n1. AMOXICILLIN 1 g dispersible tablets — one tablet twice daily, morning and evening with a meal, for 6 days.\n2. IBUPROFEN 400 mg — one tablet as needed for pain, no more than once every 8 hours, with food, for a maximum of 3 days.\n3. Review: return to the surgery if fever persists after 48 hours.\n\nLaboratory request: full blood count + C-reactive protein (CRP), on day 7 of treatment.\n\nSignature and stamp of the physician",
+    "member": {
+      "summary": "A six-day course of antibiotics with ibuprofen as needed for pain, plus a blood test (full blood count and CRP) on day 7 of treatment. A follow-up consultation is required if the fever has not settled after 48 hours.",
+      "cautions": [
+        { "severity": "attention", "title": "Finish the whole antibiotic course", "detail": "Amoxicillin runs for 6 days. Do not stop early even if symptoms improve, as the infection may relapse." },
+        { "severity": "attention", "title": "Ibuprofen has a hard ceiling", "detail": "One 400 mg tablet at most every 8 hours, three tablets a day maximum, for no more than 3 days, always with food." },
+        { "severity": "urgent", "title": "Fever after 48 hours means going back", "detail": "The prescription explicitly asks for a new consultation if the temperature has not come down after 48 hours." },
+        { "severity": "info", "title": "Do not skip the day-7 blood test", "detail": "The full blood count and CRP are scheduled for day 7 to confirm the infection is under control. Book the laboratory slot in advance." }
+      ],
+      "glossary": [
+        { "source": "Amoxicilline", "target": "Amoxicillin", "explanation": "A penicillin-family antibiotic used against bacterial infections; contraindicated if you are allergic to penicillin." },
+        { "source": "CRP (protéine C-réactive)", "target": "C-reactive protein", "explanation": "A blood marker of inflammation; a falling value usually means the infection is receding." },
+        { "source": "Comprimé dispersible", "target": "Dispersible tablet", "explanation": "A tablet meant to be dissolved in water before drinking." }
+      ],
+      "questions_for_doctor": [
+        "Should we re-check whether I have any penicillin allergy on record?",
+        "Can I take other painkillers, or drink alcohol, during the course?",
+        "If a rash or diarrhoea appears, should I stop the antibiotic or carry on?"
+      ],
+      "follow_up": [
+        "4-9 March: amoxicillin twice daily with meals.",
+        "6 March: book a follow-up if the fever persists.",
+        "10 March (day 7): full blood count + CRP at the laboratory."
+      ]
+    }
+  },
+  "fr": {
+    "document_type": "Ordonnance (amoxicilline et ibuprofène)",
+    "translation": "Clinique D.R DU — 12 place de la République, Paris 11e\nMédecin traitant : Dr Claire Vasseur (médecine générale, RPPS 10100488213)\nDate : 4 mars 2026\n\nPatiente : MARTIN Léa, née le 12 juin 1990\n\nPrescription :\n1. AMOXICILLINE 1 g, comprimés dispersibles — 1 comprimé matin et soir au cours du repas, pendant 6 jours.\n2. IBUPROFÈNE 400 mg — 1 comprimé en cas de douleur, au maximum toutes les 8 heures, au cours du repas, 3 jours maximum.\n3. Contrôle : reconsulter si la fièvre persiste après 48 heures.\n\nExamens : numération formule sanguine + CRP au 7e jour de traitement.\n\nSignature et cachet du médecin",
+    "member": {
+      "summary": "Antibiothérapie de 6 jours, antalgique à la demande et bilan sanguin (NFS + CRP) au 7e jour. Une nouvelle consultation est demandée si la fièvre persiste au-delà de 48 heures.",
+      "cautions": [
+        { "severity": "attention", "title": "Aller au bout de l'antibiothérapie", "detail": "Les 6 jours d'amoxicilline doivent être respectés, même si les symptômes s'améliorent avant." },
+        { "severity": "attention", "title": "Plafond de l'ibuprofène", "detail": "1 comprimé toutes les 8 heures au maximum, 3 par jour, 3 jours au plus, toujours au cours d'un repas." },
+        { "severity": "urgent", "title": "Fièvre à 48 heures : reconsulter", "detail": "L'ordonnance demande explicitement une nouvelle consultation si la température ne baisse pas après 48 heures." },
+        { "severity": "info", "title": "Prise de sang du 7e jour", "detail": "NFS et CRP au 7e jour pour vérifier que l'infection est maîtrisée : réserver le créneau au laboratoire à l'avance." }
+      ],
+      "glossary": [
+        { "source": "Amoxicilline", "target": "Amoxicilline", "explanation": "Antibiotique de la famille des pénicillines, contre-indiqué en cas d'allergie à la pénicilline." },
+        { "source": "CRP", "target": "Protéine C-réactive", "explanation": "Marqueur sanguin de l'inflammation ; sa baisse traduit généralement le recul de l'infection." },
+        { "source": "NFS", "target": "Numération formule sanguine", "explanation": "Analyse comptant les cellules du sang (globules rouges, blancs, plaquettes)." }
+      ],
+      "questions_for_doctor": [
+        "Mon dossier mentionne-t-il une allergie à la pénicilline ?",
+        "Puis-je associer un autre antalgique pendant le traitement ?",
+        "Que faire en cas d'éruption cutanée ou de diarrhée ?"
+      ],
+      "follow_up": [
+        "Du 4 au 9 mars : amoxicilline matin et soir au repas.",
+        "6 mars : reconsulter si la fièvre persiste.",
+        "10 mars (7e jour) : NFS + CRP au laboratoire."
+      ]
+    }
+  }
+}
