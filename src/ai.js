@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
+import { config } from "./config.js";
 
-const MODEL = "claude-opus-5";
+const MODEL = config.ai.model;
 
 /** Langues cibles proposées par l'interface. */
 export const LANGUAGES = {
@@ -106,7 +107,7 @@ function getClient() {
 }
 
 export function aiConfigured() {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+  return config.ai.configured;
 }
 
 /** Construit le bloc de contenu adapté au type de fichier téléversé. */

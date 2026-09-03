@@ -10,6 +10,7 @@ const state = {
   user: null,
   history: [],
   historyId: null,
+  billingMode: "stub",
 };
 
 /* ---------- Amorçage : praticiens + mode IA ---------- */
@@ -17,10 +18,13 @@ async function boot() {
   try {
     const config = await (await fetch("/api/config")).json();
     state.user = config.user;
+    state.billingMode = config.billingMode;
     renderDoctors(config.doctors);
     renderAccount();
     const badge = $("#ai-mode");
-    badge.textContent = config.aiMode === "live" ? "IA connectée · Claude" : "Mode démonstration (aucune clé API)";
+    const modes = [config.aiMode === "live" ? "IA connectée · Claude" : "Mode démonstration (aucune clé API)"];
+    if (config.billingMode === "stub") modes.push("paiement simulé");
+    badge.textContent = modes.join(" · ");
     badge.title =
       config.aiMode === "live"
         ? "Les documents sont traduits par le modèle Claude."
@@ -28,6 +32,22 @@ async function boot() {
   } catch {
     $("#ai-mode").textContent = "Service indisponible";
   }
+}
+
+/** Au retour du paiement, l'abonnement peut n'être actif qu'après le webhook. */
+async function handleBillingReturn() {
+  const status = new URLSearchParams(window.location.search).get("abonnement");
+  if (!status) return;
+  history.replaceState(null, "", window.location.pathname + window.location.hash);
+  if (status === "annule") return notify("Souscription abandonnée. Votre compte reste en formule Essentiel.");
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { user } = await (await fetch("/api/auth/me")).json();
+    state.user = user;
+    renderAccount();
+    if (user?.tier === "member") return notify("Paiement confirmé. Votre formule Membre est active.");
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+  }
+  notify("Paiement enregistré. L'activation peut prendre quelques instants — rechargez la page.");
 }
 
 function renderDoctors(doctors) {
@@ -152,12 +172,17 @@ function renderAccount() {
   const freeRadio = document.querySelector('input[name="tier"][value="free"]');
 
   if (state.user) {
+    const member = state.user.tier === "member";
     box.innerHTML = `<span class="who">Bonjour <strong>${escapeHtml(state.user.name)}</strong>${
-      state.user.tier === "member" ? " · Membre" : ""
-    }</span><button class="btn btn-ghost btn-sm" type="button" data-auth="logout">Se déconnecter</button>`;
+      member ? " · Membre" : ""
+    }</span>${
+      member
+        ? '<button class="btn btn-ghost btn-sm" type="button" data-auth="manage">Gérer l\'abonnement</button>'
+        : '<button class="btn btn-primary btn-sm" type="button" data-auth="subscribe">Devenir membre · 9 €/mois</button>'
+    }<button class="btn btn-ghost btn-sm" type="button" data-auth="logout">Se déconnecter</button>`;
   } else {
     box.innerHTML = `<button class="btn btn-ghost btn-sm" type="button" data-auth="login">Se connecter</button>
-      <button class="btn btn-primary btn-sm" type="button" data-auth="signup">Devenir membre</button>`;
+      <button class="btn btn-primary btn-sm" type="button" data-auth="subscribe">Devenir membre</button>`;
   }
 
   const isMember = state.user?.tier === "member";
@@ -177,13 +202,59 @@ document.addEventListener("click", (event) => {
   const action = event.target.closest("[data-auth]")?.dataset.auth;
   if (!action) return;
   if (action === "logout") return logout();
+  if (action === "subscribe") return subscribe();
+  if (action === "manage") return manageSubscription();
   openAuth(action);
 });
 
+/* ---------- Abonnement ---------- */
+
+/** Souscrire : redirection vers Stripe, ou activation simulée hors production. */
+async function subscribe() {
+  if (!state.user) return openAuth("signup", "subscribe");
+  try {
+    const response = await fetch("/api/billing/checkout", { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Souscription impossible.");
+    if (data.url) return void (window.location.href = data.url);
+    state.user = data.user;
+    renderAccount();
+    if (state.result) renderResult(state.result);
+    notify("Formule Membre active. Les points de vigilance sont débloqués.");
+  } catch (error) {
+    showError(error.message);
+  }
+}
+
+/** Gérer ou résilier : portail Stripe, ou résiliation simulée hors production. */
+async function manageSubscription() {
+  try {
+    const response = await fetch("/api/billing/portal", { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Espace de gestion indisponible.");
+    if (data.url) return void (window.location.href = data.url);
+    state.user = data.user;
+    renderAccount();
+    notify("Abonnement résilié. Votre compte reste actif en formule Essentiel.");
+  } catch (error) {
+    showError(error.message);
+  }
+}
+
+function notify(message) {
+  const box = document.querySelector("#notice");
+  box.textContent = message;
+  box.hidden = false;
+  setTimeout(() => (box.hidden = true), 6000);
+}
+
 const authDialog = $("#auth");
 let authMode = "signup";
+/** Retient si l'utilisateur venait pour souscrire, afin d'enchaîner après connexion. */
+let authIntent = null;
 
-function openAuth(mode) {
+function openAuth(mode, intent = null) {
+  authIntent = intent;
   authMode = mode;
   const form = $("#auth-form");
   form.reset();
@@ -222,6 +293,7 @@ $("#auth-form").addEventListener("submit", async (event) => {
     authDialog.close();
     renderAccount();
     if (state.result) renderResult(state.result);
+    if (authIntent === "subscribe" && state.user.tier !== "member") await subscribe();
   } catch (error) {
     const box = $("#auth-error");
     box.textContent = error.message;
@@ -408,7 +480,7 @@ function lockedPanel(label) {
     <p>La formule Essentiel rend la traduction telle quelle, sans interprétation.
     La formule Membre y ajoute la posologie détaillée, les interactions, les valeurs hors normes
     et les échéances à ne pas manquer.</p>
-    <p><button class="btn btn-primary btn-sm" type="button" data-auth="signup">Devenir membre</button></p>
+    <p><button class="btn btn-primary btn-sm" type="button" data-auth="subscribe">Devenir membre · 9 €/mois</button></p>
   </div>`;
 }
 

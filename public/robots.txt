@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+# Espaces personnels et API : rien à indexer.
+Disallow: /api/
+Disallow: /healthz
+
+Sitemap: https://drdu.example/sitemap.xml

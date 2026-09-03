@@ -13,11 +13,13 @@
 <meta property="og:locale" content="fr_FR" />
 <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="preload" href="/fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="manifest" href="/site.webmanifest" />
 <link rel="stylesheet" href="/fonts.css" />
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
 <a class="skip" href="#studio">Aller au studio de traduction</a>
+<p id="notice" class="notice" role="status" hidden></p>
 
 <header class="topbar">
   <div class="wrap topbar-inner">
@@ -33,7 +35,7 @@
     </nav>
     <div id="account" class="account">
       <button class="btn btn-ghost btn-sm" type="button" data-auth="login">Se connecter</button>
-      <button class="btn btn-primary btn-sm" type="button" data-auth="signup">Devenir membre</button>
+      <button class="btn btn-primary btn-sm" type="button" data-auth="subscribe">Devenir membre</button>
     </div>
   </div>
 </header>
@@ -163,7 +165,7 @@
                 <span class="tier-body">
                   <strong>Membre · 9 €/mois</strong>
                   <em>Traduction + 注意事项 : posologie, interactions, valeurs hors normes, questions au médecin, suivi.</em>
-                  <em id="tier-hint" class="tier-hint">Réservé aux comptes membres — <button type="button" class="link" data-auth="signup">créer un compte</button>.</em>
+                  <em id="tier-hint" class="tier-hint">Réservé aux comptes membres — <button type="button" class="link" data-auth="subscribe">souscrire</button>.</em>
                 </span>
               </label>
             </div>
@@ -234,6 +236,7 @@
             <li class="off">Glossaire médical expliqué</li>
             <li class="off">Rappels de suivi</li>
           </ul>
+          <p class="plan-cta"><a class="btn btn-ghost btn-block" href="#studio">Traduire un document</a></p>
         </article>
         <article class="plan plan-featured">
           <p class="plan-flag">Recommandé</p>
@@ -248,6 +251,9 @@
             <li>Plan de suivi daté (examens, renouvellements)</li>
             <li>Historique de vos documents traduits</li>
           </ul>
+          <p class="plan-cta"><button class="btn btn-primary btn-block" type="button" data-auth="subscribe">Devenir membre · 9 €/mois</button></p>
+          <p class="plan-note">Sans engagement, résiliable en un clic. Paiement sécurisé par Stripe ;
+          aucune coordonnée bancaire ne transite par nos serveurs.</p>
         </article>
       </div>
     </div>
@@ -290,10 +296,10 @@
       <div>
         <h4>Informations légales</h4>
         <ul>
-          <li><a href="#faq">Mentions légales</a></li>
-          <li><a href="#faq">Politique de confidentialité</a></li>
-          <li><a href="#faq">Conditions générales d'utilisation</a></li>
-          <li><a href="#faq">Accessibilité (RGAA)</a></li>
+          <li><a href="/mentions-legales">Mentions légales</a></li>
+          <li><a href="/confidentialite">Politique de confidentialité</a></li>
+          <li><a href="/cgu">Conditions générales d'utilisation</a></li>
+          <li><a href="/accessibilite">Accessibilité (RGAA)</a></li>
         </ul>
       </div>
     </div>

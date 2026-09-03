@@ -1,0 +1,18 @@
+{
+  "name": "D.R DU — clinique et documents de santé",
+  "short_name": "D.R DU",
+  "description": "Rendez-vous médical et traduction de documents de santé.",
+  "lang": "fr",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f2e9",
+  "theme_color": "#0d3b3a",
+  "icons": [
+    {
+      "src": "/icone.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
