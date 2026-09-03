@@ -55,6 +55,26 @@ Sans clé API, le site démarre en **mode démonstration** : une notice d'exempl
 (ordonnance amoxicilline / ibuprofène, en zh / en / fr) est renvoyée, ce qui permet
 de parcourir toute l'interface hors ligne. Le bandeau du studio indique le mode actif.
 
+## Design
+
+Système de design tenu par des jetons CSS (couleurs, ombres, échelle typographique
+fluide en `clamp()`, rythme de 8 px) dans `public/styles.css` :
+
+- **Typographie** — Fraunces (serif variable, titres) et Inter (texte courant),
+  **auto-hébergées** dans `public/fonts/` : aucune requête vers un tiers, ce qui
+  évite le transfert d'adresses IP à Google Fonts, contesté en Europe pour un site
+  de santé. Sous-ensembles latin et latin-ext uniquement (416 Ko), `font-display: swap`,
+  préchargement des deux fichiers du premier rendu, cache immuable d'un an.
+- **Mode sombre** natif via `prefers-color-scheme`, jetons redéfinis sans dupliquer
+  les règles.
+- **Contrastes** — toutes les paires texte/fond vérifiées à ≥ 4,5:1 (WCAG AA) dans
+  les deux thèmes.
+- **Accessibilité** — lien d'évitement en premier focus, `:focus-visible` visible
+  partout, dialogues clavier (échappement, `formnovalidate` sur Annuler), zones
+  cliquables ≥ 44 px, `prefers-reduced-motion` respecté (apparitions et défilement
+  doux neutralisés).
+- **Impression** — la feuille de style imprime la traduction seule, sans l'interface.
+
 ## Architecture
 
 ```
@@ -65,6 +85,7 @@ src/auth.js              comptes, mots de passe scrypt, sessions par cookie
 src/doctors.js           praticiens, langues parlées, tarifs, créneaux
 src/store.js             persistance fichier : rendez-vous, comptes, sessions, historique
 public/                  interface (HTML/CSS/JS sans build)
+public/fonts.css         déclarations @font-face des polices auto-hébergées
 ```
 
 ### API

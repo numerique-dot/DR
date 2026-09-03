@@ -36,6 +36,7 @@ const MIME = {
   ".svg": "image/svg+xml",
   ".json": "application/json; charset=utf-8",
   ".webmanifest": "application/manifest+json",
+  ".woff2": "font/woff2",
 };
 
 const ALLOWED_MEDIA = new Set([
@@ -96,7 +97,12 @@ function serveStatic(req, res) {
       res.writeHead(404, { "content-type": "text/plain; charset=utf-8" }).end("Page introuvable");
       return;
     }
-    res.writeHead(200, { "content-type": MIME[path.extname(target)] ?? "application/octet-stream" });
+    const ext = path.extname(target);
+    res.writeHead(200, {
+      "content-type": MIME[ext] ?? "application/octet-stream",
+      // Les polices sont immuables : on les laisse en cache longue durée.
+      ...(ext === ".woff2" ? { "cache-control": "public, max-age=31536000, immutable" } : {}),
+    });
     res.end(data);
   });
 }

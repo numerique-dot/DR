@@ -36,13 +36,26 @@ function renderDoctors(doctors) {
   for (const doctor of doctors) {
     const card = document.createElement("article");
     card.className = "doctor";
+    const full = doctor.slots.length === 0;
     card.innerHTML = `
-      <p class="spec">${escapeHtml(doctor.speciality)}</p>
-      <h3>${escapeHtml(doctor.name)}</h3>
-      <p class="meta">${escapeHtml(doctor.address)}<br />${escapeHtml(doctor.sector)}<br />${doctor.languages.map(escapeHtml).join(" · ")}</p>
-      <div class="slots">${doctor.slots.map((s) => `<span>${escapeHtml(s)}</span>`).join("")}</div>
-      <button class="btn btn-ghost btn-sm" type="button">Réserver</button>`;
-    card.querySelector("button").addEventListener("click", () => openBooking(doctor));
+      <div class="doctor-top">
+        <span class="doctor-monogram" aria-hidden="true">${escapeHtml(monogram(doctor.name))}</span>
+        <div>
+          <p class="spec">${escapeHtml(doctor.speciality)}</p>
+          <h3>${escapeHtml(doctor.name)}</h3>
+        </div>
+      </div>
+      <p class="meta">${escapeHtml(doctor.address)}<br />${escapeHtml(doctor.sector)}</p>
+      <div class="tags">${doctor.languages.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>
+      <div class="slots">${
+        full
+          ? '<span class="none">Complet cette semaine</span>'
+          : doctor.slots.map((s) => `<span>${escapeHtml(s)}</span>`).join("")
+      }</div>
+      <button class="btn btn-ghost btn-sm" type="button"${full ? " disabled" : ""}>${
+        full ? "Aucun créneau" : "Réserver"
+      }</button>`;
+    if (!full) card.querySelector("button").addEventListener("click", () => openBooking(doctor));
     grid.append(card);
   }
 }
@@ -464,6 +477,46 @@ function escapeHtml(value) {
   return escapeText(value).replace(/[&<>"']/g, (char) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char],
   );
+}
+
+function monogram(name) {
+  return name
+    .replace(/^(Dr|Docteur|Pr)\s+/i, "")
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+/* La barre supérieure ne prend son filet qu'une fois la page défilée. */
+const topbar = document.querySelector(".topbar");
+const onScroll = () => topbar.classList.toggle("is-stuck", window.scrollY > 8);
+window.addEventListener("scroll", onScroll, { passive: true });
+onScroll();
+
+/* Apparition progressive — désactivée si l'utilisateur limite les animations. */
+if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  document.querySelectorAll(".reveal").forEach((el) => el.classList.add("is-in"));
+} else {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.classList.add("is-in");
+        observer.unobserve(entry.target);
+      }
+    },
+    { rootMargin: "0px 0px -12% 0px", threshold: 0.15 },
+  );
+  document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
+}
+
+/* Fermeture des dialogues à l'échappement : on rend la main proprement. */
+for (const dlg of document.querySelectorAll("dialog")) {
+  dlg.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    dlg.close("cancel");
+  });
 }
 
 boot();
