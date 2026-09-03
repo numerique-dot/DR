@@ -11,6 +11,7 @@ Deux paliers, volontairement distincts :
 |---|---|---|
 | Traduction fidèle et intégrale | ✓ | ✓ |
 | Commentaires, avertissements | **aucun** | — |
+| Historique des documents | — | ✓ |
 | Points de vigilance **注意事项** (posologie, durée, interactions, contre-indications, valeurs hors normes, échéances) | — | ✓ |
 | Glossaire des termes techniques | — | ✓ |
 | Questions à poser au praticien | — | ✓ |
@@ -20,6 +21,27 @@ La séparation est appliquée côté serveur : le palier Essentiel utilise un pr
 système qui interdit tout ajout au texte traduit ; le palier Membre passe par une
 sortie structurée (`output_config.format`) dont le schéma porte les rubriques de la
 notice. Le client ne peut pas « débloquer » la notice, elle n'est jamais générée.
+
+## Comptes membres
+
+Un compte est créé depuis « Devenir membre » (courriel, mot de passe de 8 caractères
+minimum). Les mots de passe sont dérivés par **scrypt** avec sel aléatoire ; la session
+tient dans un cookie `HttpOnly` / `SameSite=Lax` dont seul le condensé SHA-256 est
+stocké côté serveur, avec une durée de vie de 30 jours.
+
+**Le palier est déterminé par la session, jamais par la requête** : un visiteur anonyme
+qui envoie `{"tier":"member"}` à `/api/translate` reçoit la traduction seule. La notice
+n'est simplement pas générée.
+
+Il n'y a pas encore de paiement : la formule Membre est accordée à l'inscription.
+C'est le seul point à brancher sur un prestataire (`createUser` dans `src/auth.js`).
+
+## Historique des documents
+
+Chaque traduction membre est enregistrée (50 documents par compte, les plus anciens
+sont évincés) et consultable dans « Mes documents traduits » : traduction, résumé,
+points de vigilance et plan de suivi, avec suppression unitaire. Un membre ne voit
+et ne supprime que ses propres documents.
 
 ## Démarrage
 
@@ -39,8 +61,9 @@ de parcourir toute l'interface hors ligne. Le bandeau du studio indique le mode 
 src/server.js            serveur HTTP (node:http), fichiers statiques + API JSON
 src/ai.js                appels Claude : prompts des deux paliers, schéma de la notice
 src/demo-translation.json jeu de démonstration hors ligne
+src/auth.js              comptes, mots de passe scrypt, sessions par cookie
 src/doctors.js           praticiens, langues parlées, tarifs, créneaux
-src/store.js             persistance des rendez-vous (data/appointments.json)
+src/store.js             persistance fichier : rendez-vous, comptes, sessions, historique
 public/                  interface (HTML/CSS/JS sans build)
 ```
 
@@ -49,7 +72,13 @@ public/                  interface (HTML/CSS/JS sans build)
 | Méthode | Route | Rôle |
 |---|---|---|
 | `GET` | `/api/config` | mode IA, langues, praticiens |
-| `GET` | `/api/appointments` | rendez-vous enregistrés |
+| `POST` | `/api/auth/signup` | crée un compte et ouvre une session |
+| `POST` | `/api/auth/login` | ouvre une session |
+| `POST` | `/api/auth/logout` | ferme la session |
+| `GET` | `/api/auth/me` | utilisateur courant |
+| `GET` | `/api/history` | historique du membre (401 sans session, 403 hors formule Membre) |
+| `DELETE` | `/api/history/:id` | supprime un document de son propre historique |
+| `GET` | `/api/appointments` | ses propres rendez-vous (session requise) |
 | `POST` | `/api/appointments` | crée un rendez-vous (`doctorId`, `slot`, `patientName`, `email`, …) |
 | `POST` | `/api/translate` | traduit un document (`tier`, `target`, `fileName`, `mediaType`, `dataBase64` ou `text`) |
 
@@ -61,8 +90,10 @@ Modèle : `claude-opus-5`, réflexion adaptative, repli serveur en cas de refus.
 
 ## Limites assumées
 
-- L'authentification des membres est simulée par le sélecteur de formule : il n'y a
-  pas encore de comptes, de paiement, ni d'historique persistant côté patient.
-- Les créneaux sont statiques (`src/doctors.js`) et ne sont pas décrémentés après
-  réservation ; aucun courriel n'est réellement envoyé.
+- Pas de paiement : l'inscription accorde directement la formule Membre.
+- Persistance en fichiers JSON sous `data/` — suffisant pour une démonstration, à
+  remplacer par une base de données avant toute mise en production (les écritures
+  ne sont pas transactionnelles).
+- Les créneaux sont déclarés en dur dans `src/doctors.js` ; ils disparaissent une fois
+  réservés, mais aucun courriel n'est réellement envoyé.
 - La traduction est une aide à la compréhension, pas un avis médical.

@@ -23,7 +23,10 @@
       <a href="#offres">Offres</a>
       <a href="#faq">FAQ</a>
     </nav>
-    <a class="btn btn-primary btn-sm" href="#praticiens">Prendre rendez-vous</a>
+    <div id="account" class="account">
+      <button class="btn btn-ghost btn-sm" type="button" data-auth="login">Se connecter</button>
+      <button class="btn btn-primary btn-sm" type="button" data-auth="signup">Devenir membre</button>
+    </div>
   </div>
 </header>
 
@@ -111,10 +114,11 @@
                 </span>
               </label>
               <label class="tier">
-                <input type="radio" name="tier" value="member" />
+                <input type="radio" name="tier" value="member" disabled />
                 <span class="tier-body">
                   <strong>Membre · 9 €/mois</strong>
                   <em>Traduction + 注意事项 : posologie, interactions, valeurs hors normes, questions au médecin, suivi.</em>
+                  <em id="tier-hint" class="tier-hint">Réservé aux comptes membres — <button type="button" class="link" data-auth="signup">créer un compte</button>.</em>
                 </span>
               </label>
             </div>
@@ -148,6 +152,19 @@
           <div id="error" class="alert" role="alert" hidden></div>
           <div id="loading" class="loading" hidden><span class="spinner" aria-hidden="true"></span> Analyse du document…</div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="historique" class="section" hidden>
+    <div class="wrap">
+      <header class="section-head">
+        <h2>Mes documents traduits</h2>
+        <p>Les 50 derniers documents de votre compte, notice comprise. Supprimables à tout moment.</p>
+      </header>
+      <div class="history">
+        <ul id="history-list" class="history-list" aria-live="polite"></ul>
+        <div id="history-detail" class="history-detail"></div>
       </div>
     </div>
   </section>
@@ -207,6 +224,22 @@
     <p>Urgences : 15 (SAMU) · 112 (urgences européennes) · 116 117 (garde médicale)</p>
   </div>
 </footer>
+
+<dialog id="auth" class="booking">
+  <form id="auth-form" method="dialog">
+    <h2 id="auth-title">Devenir membre</h2>
+    <p id="auth-intro" class="booking-doctor"></p>
+    <label id="auth-name-field">Nom<input name="name" autocomplete="name" /></label>
+    <label>Courriel<input name="email" type="email" required autocomplete="email" /></label>
+    <label>Mot de passe<input name="password" type="password" required minlength="8" autocomplete="current-password" /></label>
+    <div id="auth-error" class="alert" role="alert" hidden></div>
+    <div class="booking-actions">
+      <button class="btn btn-ghost" value="cancel" formnovalidate>Annuler</button>
+      <button class="btn btn-primary" id="auth-submit" value="confirm">Valider</button>
+    </div>
+    <p class="disclaimer" id="auth-switch"></p>
+  </form>
+</dialog>
 
 <dialog id="booking" class="booking">
   <form id="booking-form" method="dialog">

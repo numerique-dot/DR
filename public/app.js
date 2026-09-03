@@ -1,13 +1,24 @@
 const $ = (sel) => document.querySelector(sel);
 const MAX_FILE = 9 * 1024 * 1024;
+const LANG_LABEL = { zh: "中文 (simplifié)", en: "English", fr: "Français" };
 
-const state = { file: null, text: null, result: null, activeTab: "translation" };
+const state = {
+  file: null,
+  text: null,
+  result: null,
+  activeTab: "translation",
+  user: null,
+  history: [],
+  historyId: null,
+};
 
 /* ---------- Amorçage : praticiens + mode IA ---------- */
 async function boot() {
   try {
     const config = await (await fetch("/api/config")).json();
+    state.user = config.user;
     renderDoctors(config.doctors);
+    renderAccount();
     const badge = $("#ai-mode");
     badge.textContent = config.aiMode === "live" ? "IA connectée · Claude" : "Mode démonstration (aucune clé API)";
     badge.title =
@@ -115,7 +126,168 @@ function acceptFile(file) {
 }
 
 function selectedTier() {
-  return document.querySelector('input[name="tier"]:checked').value;
+  // Le serveur décide seul du palier d'après la session ; côté client, ceci ne
+  // sert qu'à l'affichage.
+  return state.user?.tier === "member" ? "member" : "free";
+}
+
+/* ---------- Compte ---------- */
+
+function renderAccount() {
+  const box = $("#account");
+  const memberRadio = document.querySelector('input[name="tier"][value="member"]');
+  const freeRadio = document.querySelector('input[name="tier"][value="free"]');
+
+  if (state.user) {
+    box.innerHTML = `<span class="who">Bonjour <strong>${escapeHtml(state.user.name)}</strong>${
+      state.user.tier === "member" ? " · Membre" : ""
+    }</span><button class="btn btn-ghost btn-sm" type="button" data-auth="logout">Se déconnecter</button>`;
+  } else {
+    box.innerHTML = `<button class="btn btn-ghost btn-sm" type="button" data-auth="login">Se connecter</button>
+      <button class="btn btn-primary btn-sm" type="button" data-auth="signup">Devenir membre</button>`;
+  }
+
+  const isMember = state.user?.tier === "member";
+  memberRadio.disabled = !isMember;
+  if (isMember) memberRadio.checked = true;
+  else freeRadio.checked = true;
+
+  $("#historique").hidden = !isMember;
+  if (isMember) loadHistory();
+  else {
+    state.history = [];
+    state.historyId = null;
+  }
+}
+
+document.addEventListener("click", (event) => {
+  const action = event.target.closest("[data-auth]")?.dataset.auth;
+  if (!action) return;
+  if (action === "logout") return logout();
+  openAuth(action);
+});
+
+const authDialog = $("#auth");
+let authMode = "signup";
+
+function openAuth(mode) {
+  authMode = mode;
+  const form = $("#auth-form");
+  form.reset();
+  $("#auth-error").hidden = true;
+  $("#auth-title").textContent = mode === "signup" ? "Devenir membre" : "Se connecter";
+  $("#auth-intro").textContent =
+    mode === "signup"
+      ? "La formule Membre débloque les points de vigilance (注意事项) et l'historique de vos documents."
+      : "Retrouvez vos documents traduits et vos rendez-vous.";
+  $("#auth-name-field").hidden = mode !== "signup";
+  $("#auth-submit").textContent = mode === "signup" ? "Créer mon compte" : "Se connecter";
+  $("#auth-switch").innerHTML =
+    mode === "signup"
+      ? 'Déjà membre ? <button type="button" class="link" data-auth="login">Se connecter</button>'
+      : 'Pas encore de compte ? <button type="button" class="link" data-auth="signup">Devenir membre</button>';
+  if (authDialog.open) authDialog.close();
+  authDialog.showModal();
+}
+
+$("#auth-form").addEventListener("submit", async (event) => {
+  if (event.submitter?.value === "cancel") return;
+  event.preventDefault();
+  const payload = Object.fromEntries(new FormData(event.target).entries());
+  const button = $("#auth-submit");
+  button.disabled = true;
+  try {
+    const route = authMode === "signup" ? "/api/auth/signup" : "/api/auth/login";
+    const response = await fetch(route, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Connexion impossible.");
+    state.user = data.user;
+    authDialog.close();
+    renderAccount();
+    if (state.result) renderResult(state.result);
+  } catch (error) {
+    const box = $("#auth-error");
+    box.textContent = error.message;
+    box.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+async function logout() {
+  await fetch("/api/auth/logout", { method: "POST" });
+  state.user = null;
+  renderAccount();
+  if (state.result) {
+    state.result = null;
+    $("#result").hidden = true;
+    $("#result-empty").hidden = false;
+  }
+}
+
+/* ---------- Historique des documents (membres) ---------- */
+
+async function loadHistory() {
+  try {
+    const response = await fetch("/api/history");
+    if (!response.ok) return;
+    state.history = await response.json();
+    renderHistory();
+  } catch {
+    /* silencieux : l'historique est un confort, pas un bloqueur */
+  }
+}
+
+function renderHistory() {
+  const list = $("#history-list");
+  const detail = $("#history-detail");
+  list.innerHTML = "";
+
+  if (!state.history.length) {
+    list.innerHTML = '<li class="history-empty">Aucun document pour le moment : traduisez une ordonnance et elle apparaîtra ici.</li>';
+    detail.innerHTML = '<p class="history-empty">Sélectionnez un document pour revoir sa traduction et sa notice.</p>';
+    return;
+  }
+
+  for (const row of state.history) {
+    const item = document.createElement("li");
+    if (row.id === state.historyId) item.classList.add("is-active");
+    const date = new Date(row.createdAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+    item.innerHTML = `
+      <button class="h-open" type="button">${escapeHtml(row.document_type || row.fileName)}</button>
+      <span class="h-meta">${escapeHtml(row.fileName)} → ${escapeHtml(LANG_LABEL[row.target] ?? row.target)} · ${escapeHtml(date)}</span>
+      <span class="h-meta">${row.cautions.length} point(s) de vigilance</span>
+      <span class="h-actions"><button class="link" type="button" data-del="${escapeHtml(row.id)}">Supprimer</button></span>`;
+    item.querySelector(".h-open").addEventListener("click", () => {
+      state.historyId = row.id;
+      renderHistory();
+    });
+    item.querySelector("[data-del]").addEventListener("click", () => removeHistory(row.id));
+    list.append(item);
+  }
+
+  const active = state.history.find((row) => row.id === state.historyId);
+  if (!active) {
+    detail.innerHTML = '<p class="history-empty">Sélectionnez un document pour revoir sa traduction et sa notice.</p>';
+    return;
+  }
+  detail.innerHTML = `<h3>${escapeHtml(active.document_type || active.fileName)}</h3>
+    <p class="result-meta">${escapeHtml(active.fileName)} → ${escapeHtml(LANG_LABEL[active.target] ?? active.target)}</p>
+    ${panelHtml("translation", active)}
+    <h4>注意事项</h4>${panelHtml("cautions", active)}
+    <h4>Suivi</h4>${panelHtml("follow", active)}`;
+}
+
+async function removeHistory(id) {
+  if (!confirm("Supprimer définitivement ce document de votre historique ?")) return;
+  const response = await fetch(`/api/history/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!response.ok) return showError("Suppression impossible.");
+  if (state.historyId === id) state.historyId = null;
+  await loadHistory();
 }
 
 /* ---------- Traduction ---------- */
@@ -151,6 +323,7 @@ $("#translate-form").addEventListener("submit", async (event) => {
     state.result = data;
     state.activeTab = "translation";
     renderResult(data);
+    if (data.tier === "member") loadHistory();
   } catch (error) {
     showError(error.message);
   } finally {
@@ -171,8 +344,6 @@ function toBase64(file) {
     reader.readAsDataURL(file);
   });
 }
-
-const LANG_LABEL = { zh: "中文 (simplifié)", en: "English", fr: "Français" };
 
 function renderResult(data) {
   $("#result-empty").hidden = true;
@@ -224,7 +395,7 @@ function lockedPanel(label) {
     <p>La formule Essentiel rend la traduction telle quelle, sans interprétation.
     La formule Membre y ajoute la posologie détaillée, les interactions, les valeurs hors normes
     et les échéances à ne pas manquer.</p>
-    <p><a class="btn btn-primary btn-sm" href="#offres">Voir la formule Membre</a></p>
+    <p><button class="btn btn-primary btn-sm" type="button" data-auth="signup">Devenir membre</button></p>
   </div>`;
 }
 
