@@ -1,10 +1,10 @@
-# D.R DU — plateforme de réservation multilingue
+# D.R RDV — plateforme de réservation multilingue
 
 Plateforme de mise en relation : les **professionnels s'inscrivent**, publient leurs
 prestations et leurs créneaux ; les **clients réservent** et échangent avec eux, chacun
 dans sa langue. Le chinois, le français et l'anglais sont traités à égalité.
 
-D.R DU est un **intermédiaire** : les prestations sont fournies par les professionnels
+D.R RDV est un **intermédiaire** : les prestations sont fournies par les professionnels
 inscrits. Aucune commission n'est prélevée, aucun paiement de prestation n'est encaissé.
 
 Node 22, aucune étape de build, une seule dépendance d'exécution (`@anthropic-ai/sdk`).

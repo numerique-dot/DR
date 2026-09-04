@@ -33,7 +33,7 @@ export const config = {
     /** "log" écrit dans la sortie standard, "webhook" relaie vers MAIL_WEBHOOK_URL. */
     transport: env.MAIL_TRANSPORT ?? (env.MAIL_WEBHOOK_URL ? "webhook" : "log"),
     webhookUrl: env.MAIL_WEBHOOK_URL ?? null,
-    from: env.MAIL_FROM ?? "D.R DU <ne-pas-repondre@drdu.example>",
+    from: env.MAIL_FROM ?? "D.R RDV <ne-pas-repondre@drdu.example>",
     replyTo: env.MAIL_REPLY_TO ?? "accueil@drdu.example",
   },
 
@@ -95,12 +95,12 @@ export const config = {
   },
 
   service: {
-    name: "D.R DU",
+    name: "D.R RDV",
     address: "12 place de la République, 75011 Paris",
     phone: "+33 1 84 00 12 12",
     email: "contact@drdu.example",
     siret: env.SERVICE_SIRET ?? "000 000 000 00000",
-    publisher: env.SERVICE_PUBLISHER ?? "Société D.R DU SAS",
+    publisher: env.SERVICE_PUBLISHER ?? "Société D.R RDV SAS",
     host: env.SERVICE_HOST ?? "Hébergeur (à préciser)",
     /** Médecin donneur d'ordre du service de traduction. */
     mandatingDoctor: env.MANDATING_DOCTOR ?? "Médecin donneur d'ordre (à préciser)",

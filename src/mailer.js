@@ -35,7 +35,7 @@ async function send(message) {
 export function welcome(user) {
   return send({
     to: user.email,
-    subject: "Bienvenue chez D.R DU",
+    subject: "Bienvenue chez D.R RDV",
     text: `Bonjour ${user.name},
 
 Votre compte est créé. Vous pouvez réserver auprès des professionnels inscrits,

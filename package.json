@@ -2,7 +2,7 @@
   "name": "dr-du",
   "version": "1.0.0",
   "private": true,
-  "description": "D.R DU — prise de rendez-vous médical et traduction assistée par IA des documents de santé",
+  "description": "D.R RDV — prise de rendez-vous médical et traduction assistée par IA des documents de santé",
   "type": "module",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",

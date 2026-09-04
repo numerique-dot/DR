@@ -1,6 +1,6 @@
 {
-  "name": "D.R DU — réservation en ligne multilingue",
-  "short_name": "D.R DU",
+  "name": "D.R RDV — réservation en ligne multilingue",
+  "short_name": "D.R RDV",
   "description": "Réservez un professionnel et échangez dans votre langue.",
   "lang": "fr",
   "start_url": "/reserver",
