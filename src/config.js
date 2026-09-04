@@ -20,6 +20,13 @@ export const config = {
   /** Origine publique, utilisée pour les liens, la vérification CSRF et Stripe. */
   publicUrl: (env.PUBLIC_URL ?? `http://localhost:${Number(env.PORT ?? 3000)}`).replace(/\/$/, ""),
   trustProxy: bool(env.TRUST_PROXY, false),
+  /**
+   * Démonstration publique : autorise un déploiement en production (HTTPS,
+   * cookies Secure, HSTS) sans clé Anthropic ni Stripe. La traduction répond
+   * en mode démonstration et l'abonnement est simulé — l'interface le dit.
+   * À retirer avant d'accepter de vrais paiements.
+   */
+  publicDemo: bool(env.PUBLIC_DEMO, false),
   /** Fuseau des dates dans les courriels : le serveur, lui, tourne en UTC. */
   timezone: env.TIMEZONE ?? "Europe/Paris",
   databaseFile: env.DATABASE_FILE ?? "data/drdu.sqlite",
@@ -121,9 +128,15 @@ export function assertProductionReady() {
   const fatal = [];
   const warn = [];
   if (!config.publicUrl.startsWith("https://")) fatal.push("PUBLIC_URL doit être en HTTPS.");
-  if (!config.ai.configured) fatal.push("ANTHROPIC_API_KEY manquante : le studio ne traduirait rien.");
+  if (config.publicDemo) {
+    // Démonstration publique : les prestataires manquants deviennent des avertissements.
+    if (!config.ai.configured) warn.push("PUBLIC_DEMO : traduction en mode démonstration (aucune clé Anthropic).");
+    if (config.billing.provider === "stub") warn.push("PUBLIC_DEMO : abonnement simulé, aucun paiement réel.");
+  } else if (!config.ai.configured) {
+    fatal.push("ANTHROPIC_API_KEY manquante : le studio ne traduirait rien.");
+  }
   if (config.billing.provider === "stub") {
-    fatal.push("STRIPE_SECRET_KEY manquante : l'abonnement serait accordé sans paiement.");
+    if (!config.publicDemo) fatal.push("STRIPE_SECRET_KEY manquante : l'abonnement serait accordé sans paiement.");
   } else {
     if (!config.billing.priceId) fatal.push("STRIPE_PRICE_ID manquant.");
     if (!config.billing.webhookSecret) fatal.push("STRIPE_WEBHOOK_SECRET manquant.");

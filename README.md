@@ -183,6 +183,9 @@ directement par les tests avec une horloge simulée.
 
 ## Mise en production
 
+Guide pas à pas par plateforme (Fly.io, Render, Railway, VPS) : **[docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)**.
+Pour une démonstration publique sans Stripe ni clé Anthropic, poser `PUBLIC_DEMO=true`.
+
 ```bash
 cp .env.example .env      # puis renseigner les valeurs réelles
 docker build -t drdu .
