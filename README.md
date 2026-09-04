@@ -54,7 +54,7 @@ contrat de dix pages.
 
 ```bash
 npm install
-npm test                  # 90 tests
+npm test                  # 98 tests
 npm start                 # http://localhost:3000
 ```
 
@@ -126,6 +126,26 @@ fabriquer un lien valide.
 Au changement, **toutes les sessions ouvertes sont fermées** — si quelqu'un d'autre était
 connecté, il ne l'est plus — et un courriel signale la modification. Un mot de passe refusé
 (trop court) ne consomme pas le lien : l'utilisateur peut réessayer.
+
+## Notifications
+
+Chaque partie est prévenue par courriel, **dans sa langue d'interface** (`users.locale`) et
+dans le fuseau du service :
+
+| Événement | Client | Professionnel |
+|---|---|---|
+| Nouvelle réservation | confirmation | alerte, avec la précision du client et sa traduction |
+| Annulation par le client | — | alerte, créneau de nouveau réservable |
+| Annulation par le professionnel | alerte | — |
+| Nouveau message | récapitulatif groupé | récapitulatif groupé |
+
+Les messages ne déclenchent **pas un courriel chacun** : ils entrent dans une file en base
+(`pending_notifications`), et le destinataire reçoit **un seul récapitulatif** quand la plus
+ancienne entrée a dix minutes (`NOTIFY_DIGEST_MINUTES`), toutes conversations confondues.
+S'il a ouvert la conversation entre-temps, la file se vide et rien ne part — le but était
+qu'il lise, c'est fait. La file survit à un redémarrage ; un balayage tourne toutes les
+soixante secondes (`NOTIFY_SWEEP_SECONDS`), et `flushNotifications()` est appelable
+directement par les tests avec une horloge simulée.
 
 ## Décisions techniques notables
 
@@ -211,7 +231,9 @@ src/i18n.js              dictionnaire fr / zh / en de l'interface
 src/ai-text.js           traduction des textes courts (précisions, messages)
 src/ai.js                traduction de documents : deux paliers, schéma de la notice
 src/billing.js           Stripe Checkout et portail, webhooks signés, mode simulé
-src/mailer.js            courriels (bienvenue, confirmation, annulation, abonnement)
+src/mailer.js            courriels (bienvenue, réservations, abonnement, mot de passe)
+src/mail-texts.js        textes des alertes en fr / zh / en
+src/notifications.js     file de messages groupés et balayage périodique
 src/security.js          en-têtes, CSP, limitation de débit, vérification d'origine
 src/logger.js            journal structuré en JSON par ligne
 public/                  quatre pages + pages légales, modules ES sans build

@@ -230,6 +230,22 @@ const MIGRATIONS = [
       CREATE UNIQUE INDEX bookings_slot_confirmed ON bookings(slot_id) WHERE status = 'confirmed';
     `,
   },
+  {
+    id: 7,
+    name: "file d'attente des notifications par courriel",
+    sql: `
+      -- Les messages à notifier s'accumulent ici, puis partent groupés : un
+      -- destinataire reçoit un seul courriel pour dix minutes d'échanges.
+      CREATE TABLE pending_notifications (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        booking_id TEXT NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX pending_notifications_user ON pending_notifications(user_id, created_at);
+    `,
+  },
 ];
 
 export function migrate() {
@@ -417,6 +433,11 @@ export const merchants = {
   byOwner(ownerId) {
     const row = db.prepare("SELECT * FROM merchants WHERE owner_id = ?").get(ownerId);
     return row ? inflateMerchant(row) : null;
+  },
+  /** Compte propriétaire d'un établissement, destinataire de ses notifications. */
+  owner(merchantId) {
+    const row = db.prepare("SELECT owner_id FROM merchants WHERE id = ?").get(merchantId);
+    return row ? users.byId(row.owner_id) : null;
   },
 
   create(ownerId, input) {
@@ -996,6 +1017,55 @@ export const passwordResets = {
 
   prune() {
     return db.prepare("DELETE FROM password_resets WHERE expires_at <= ?").run(now()).changes;
+  },
+};
+
+/* ---------- Notifications en attente ---------- */
+
+export const pendingNotifications = {
+  add(userId, bookingId, kind) {
+    db.prepare(
+      "INSERT INTO pending_notifications (id, user_id, booking_id, kind, created_at) VALUES (?, ?, ?, ?, ?)",
+    ).run(uuid(), userId, bookingId, kind, now());
+  },
+
+  /** Le destinataire a lu la conversation : plus rien à lui signaler pour celle-ci. */
+  clear(userId, bookingId) {
+    return db
+      .prepare("DELETE FROM pending_notifications WHERE user_id = ? AND booking_id = ?")
+      .run(userId, bookingId).changes;
+  },
+
+  /**
+   * Destinataires dont la plus ancienne notification a dépassé le délai de
+   * regroupement, avec le détail par réservation.
+   */
+  due(olderThanIso) {
+    const users = db
+      .prepare(
+        `SELECT user_id, MIN(created_at) AS oldest FROM pending_notifications
+         GROUP BY user_id HAVING oldest <= ?`,
+      )
+      .all(olderThanIso);
+    return users.map((row) => ({
+      userId: row.user_id,
+      items: db
+        .prepare(
+          `SELECT booking_id, kind, COUNT(*) AS n FROM pending_notifications
+           WHERE user_id = ? GROUP BY booking_id, kind`,
+        )
+        .all(row.user_id)
+        .map((item) => ({ bookingId: item.booking_id, kind: item.kind, count: item.n })),
+    }));
+  },
+
+  /** Vide la file d'un destinataire une fois le courriel parti. */
+  consume(userId) {
+    return db.prepare("DELETE FROM pending_notifications WHERE user_id = ?").run(userId).changes;
+  },
+
+  count(userId) {
+    return db.prepare("SELECT COUNT(*) AS n FROM pending_notifications WHERE user_id = ?").get(userId).n;
   },
 };
 
