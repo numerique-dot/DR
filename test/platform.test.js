@@ -330,6 +330,9 @@ describe("langue de l'interface", () => {
 
 describe("limitation de débit de l'authentification", () => {
   it("ne compte que les échecs : une connexion réussie libère le quota", async () => {
+    // Les inscriptions des tests précédents comptent : on part d'un compteur vierge.
+    const { resetRateLimits } = await import("../src/security.js");
+    resetRateLimits();
     const app = await startServer();
     const credentials = {
       email: `quota${Date.now()}@example.com`,
@@ -338,6 +341,7 @@ describe("limitation de débit de l'authentification", () => {
     };
     await app.post("/api/auth/signup", credentials);
     await app.post("/api/auth/logout");
+    resetRateLimits();
 
     // Neuf échecs : sous la limite de dix.
     for (let attempt = 0; attempt < 9; attempt++) {

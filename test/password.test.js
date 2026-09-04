@@ -38,7 +38,12 @@ async function requestToken() {
   const before = inbox.length;
   const { status } = await app.post("/api/auth/forgot", { email: EMAIL });
   assert.equal(status, 200);
-  const message = inbox.slice(before).find((mail) => mail.subject.includes("Réinitialiser"));
+  // Le courriel part sans retarder la réponse : on lui laisse le temps d'arriver.
+  let message = null;
+  for (let attempt = 0; attempt < 50 && !message; attempt++) {
+    message = inbox.slice(before).find((mail) => mail.subject.includes("Réinitialiser"));
+    if (!message) await new Promise((resolve) => setTimeout(resolve, 20));
+  }
   assert.ok(message, "un courriel de réinitialisation doit partir");
   const link = message.text.match(/reinitialiser\?jeton=([^\s]+)/);
   assert.ok(link, "le courriel doit contenir le lien");
@@ -71,6 +76,7 @@ describe("demande de réinitialisation", () => {
   it("n'envoie de courriel qu'aux adresses connues", async () => {
     const before = inbox.length;
     await app.post("/api/auth/forgot", { email: "inconnu@example.com" });
+    await new Promise((resolve) => setTimeout(resolve, 150));
     assert.equal(inbox.length, before, "aucun message ne part vers une adresse sans compte");
   });
 });

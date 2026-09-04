@@ -54,6 +54,11 @@ const STATUS_TEXT = {
     tone: "info",
     message: "Votre fiche est en pause : elle n'apparaît pas au catalogue et personne ne peut réserver.",
   },
+  suspended: {
+    tone: "warn",
+    message:
+      "Votre fiche a été suspendue par la modération : elle n'apparaît pas au catalogue. Écrivez-nous pour en connaître la raison et la rétablir.",
+  },
 };
 
 function renderStatus(merchant) {
@@ -186,7 +191,10 @@ function renderSlots() {
   // Regroupement par journée : un agenda se lit par jour, pas par ligne.
   const days = new Map();
   for (const slot of pro.slots) {
-    const day = slot.startsAt.slice(0, 10);
+    // Clé de journée dans le fuseau du navigateur : un créneau à 23 h 30 ne doit
+    // pas glisser sous la veille parce que l'ISO est en UTC.
+    const local = new Date(slot.startsAt);
+    const day = `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, "0")}-${String(local.getDate()).padStart(2, "0")}`;
     if (!days.has(day)) days.set(day, []);
     days.get(day).push(slot);
   }
@@ -194,7 +202,7 @@ function renderSlots() {
     const block = document.createElement("section");
     block.className = "slot-day";
     block.innerHTML = `<h3>${escapeHtml(
-      new Date(day).toLocaleDateString(state.locale === "zh" ? "zh-CN" : state.locale === "en" ? "en-GB" : "fr-FR", {
+      new Date(`${day}T12:00:00`).toLocaleDateString(state.locale === "zh" ? "zh-CN" : state.locale === "en" ? "en-GB" : "fr-FR", {
         weekday: "long",
         day: "numeric",
         month: "long",

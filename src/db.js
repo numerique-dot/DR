@@ -5,8 +5,11 @@ import { DatabaseSync } from "node:sqlite";
 import { config } from "./config.js";
 
 /* SQLite intégré à Node : transactionnel, un seul fichier, aucune dépendance. */
-const file = path.resolve(process.cwd(), config.databaseFile);
-if (file !== ":memory:") fs.mkdirSync(path.dirname(file), { recursive: true });
+// « :memory: » est un mot-clé SQLite, pas un chemin : il ne doit pas être résolu,
+// sinon un fichier de ce nom apparaît à la racine du projet.
+const inMemory = config.databaseFile === ":memory:";
+const file = inMemory ? ":memory:" : path.resolve(process.cwd(), config.databaseFile);
+if (!inMemory) fs.mkdirSync(path.dirname(file), { recursive: true });
 
 export const db = new DatabaseSync(file);
 db.exec("PRAGMA journal_mode = WAL");
@@ -194,6 +197,39 @@ const MIGRATIONS = [
       CREATE INDEX password_resets_user ON password_resets(user_id);
     `,
   },
+  {
+    id: 6,
+    name: "un créneau annulé redevient réservable ; une prestation réservée ne se supprime pas",
+    // Reconstruction de table : impossible dans une transaction avec les clés
+    // étrangères actives (le DROP déclencherait les suppressions en cascade).
+    rebuild: true,
+    sql: `
+      CREATE TABLE bookings_new (
+        id TEXT PRIMARY KEY,
+        reference TEXT NOT NULL UNIQUE,
+        slot_id TEXT NOT NULL REFERENCES slots(id) ON DELETE CASCADE,
+        merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+        service_id TEXT NOT NULL REFERENCES services(id) ON DELETE RESTRICT,
+        customer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        starts_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'confirmed',
+        note TEXT NOT NULL DEFAULT '',
+        note_lang TEXT NOT NULL DEFAULT 'fr',
+        created_at TEXT NOT NULL,
+        cancelled_at TEXT,
+        cancelled_by TEXT
+      );
+      INSERT INTO bookings_new SELECT id, reference, slot_id, merchant_id, service_id, customer_id,
+        starts_at, status, note, note_lang, created_at, cancelled_at, cancelled_by FROM bookings;
+      DROP TABLE bookings;
+      ALTER TABLE bookings_new RENAME TO bookings;
+      CREATE INDEX bookings_merchant ON bookings(merchant_id, starts_at);
+      CREATE INDEX bookings_customer ON bookings(customer_id, starts_at);
+      -- Le verrou ne porte que sur les réservations en cours : une annulation
+      -- libère réellement le créneau.
+      CREATE UNIQUE INDEX bookings_slot_confirmed ON bookings(slot_id) WHERE status = 'confirmed';
+    `,
+  },
 ];
 
 export function migrate() {
@@ -201,9 +237,16 @@ export function migrate() {
   const done = new Set(db.prepare("SELECT id FROM migrations").all().map((row) => row.id));
   for (const migration of MIGRATIONS) {
     if (done.has(migration.id)) continue;
+    // Une reconstruction de table coupe les clés étrangères le temps de
+    // l'opération, puis vérifie qu'aucune référence n'a été cassée.
+    if (migration.rebuild) db.exec("PRAGMA foreign_keys = OFF");
     db.exec("BEGIN");
     try {
       db.exec(migration.sql);
+      if (migration.rebuild) {
+        const broken = db.prepare("PRAGMA foreign_key_check").all();
+        if (broken.length) throw new Error(`Références cassées par la migration ${migration.id}`);
+      }
       db.prepare("INSERT INTO migrations (id, name, applied_at) VALUES (?, ?, ?)").run(
         migration.id,
         migration.name,
@@ -213,6 +256,8 @@ export function migrate() {
     } catch (error) {
       db.exec("ROLLBACK");
       throw error;
+    } finally {
+      if (migration.rebuild) db.exec("PRAGMA foreign_keys = ON");
     }
   }
 }
@@ -430,7 +475,9 @@ export const merchants = {
   },
 
   /** Statuts possibles d'une fiche, du dépôt à la publication. */
-  STATUSES: ["pending", "active", "paused", "rejected"],
+  STATUSES: ["pending", "active", "paused", "suspended", "rejected"],
+  /** Statuts que le commerçant peut modifier lui-même. */
+  SELF_SERVICE: ["active", "paused"],
 
   setStatus(id, status, note = "") {
     if (!merchants.STATUSES.includes(status)) {
@@ -481,6 +528,7 @@ export const merchants = {
       .prepare(`SELECT * FROM merchants WHERE ${clauses.join(" AND ")} ORDER BY name LIMIT ?`)
       .all(...params, limit)
       .map(inflateMerchant)
+      .map(publicMerchant)
       .map((merchant) => ({
         ...merchant,
         services: services.forMerchant(merchant.id, { onlyActive: true }),
@@ -529,6 +577,13 @@ export const merchants = {
   },
 };
 
+/** Ce que le public voit d'une fiche : ni le compte propriétaire, ni la modération. */
+export function publicMerchant(merchant) {
+  if (!merchant) return null;
+  const { ownerId, moderationNote, ...visible } = merchant;
+  return visible;
+}
+
 function inflateMerchant(row) {
   return {
     id: row.id,
@@ -575,7 +630,27 @@ export const services = {
     ).run(input.name, input.description, input.durationMin, input.priceCents, input.active ? 1 : 0, id);
     return this.byId(id);
   },
+  /**
+   * Une prestation qui a servi — même à une réservation annulée — fait partie de
+   * l'historique des clients et ne se supprime pas : on la désactive. La clé
+   * étrangère (ON DELETE RESTRICT) garantit la même règle côté base.
+   */
   remove(merchantId, id) {
+    const { active, total } = db
+      .prepare(
+        `SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS active
+         FROM bookings WHERE service_id = ?`,
+      )
+      .get(id);
+    if (total) {
+      const detail = active
+        ? `${active} réservation(s) en cours`
+        : `${total} réservation(s) passée(s) dans l'historique des clients`;
+      throw Object.assign(
+        new Error(`Cette prestation a ${detail} : désactivez-la plutôt que de la supprimer.`),
+        { status: 409 },
+      );
+    }
     return db.prepare("DELETE FROM services WHERE id = ? AND merchant_id = ?").run(id, merchantId).changes > 0;
   },
   validate(input) {
@@ -699,6 +774,12 @@ export const bookings = {
   create({ slotId, customerId, serviceId, note, noteLang }) {
     const slot = db.prepare("SELECT * FROM slots WHERE id = ?").get(slotId);
     if (!slot) throw Object.assign(new Error("Créneau introuvable."), { status: 404 });
+    // Une fiche hors catalogue (en attente, en pause, suspendue, refusée) ne
+    // reçoit pas de réservation, même avec un identifiant de créneau connu.
+    const merchant = merchants.byId(slot.merchant_id);
+    if (!merchant || merchant.status !== "active") {
+      throw Object.assign(new Error("Cet établissement n'accepte pas de réservation pour le moment."), { status: 409 });
+    }
     if (slot.starts_at <= now()) throw Object.assign(new Error("Ce créneau est passé."), { status: 409 });
     const service = services.byId(serviceId);
     if (!service || service.merchantId !== slot.merchant_id || !service.active) {
@@ -740,14 +821,21 @@ export const bookings = {
     return db
       .prepare("SELECT * FROM bookings WHERE customer_id = ? ORDER BY starts_at DESC")
       .all(customerId)
-      .map(decorate);
+      .map((row) => decorate(row, customerId));
   },
 
-  forMerchant(merchantId) {
+  /** @param readerId compte qui lit, pour ne compter que les messages reçus */
+  forMerchant(merchantId, readerId) {
     return db
       .prepare("SELECT * FROM bookings WHERE merchant_id = ? ORDER BY starts_at")
       .all(merchantId)
-      .map(decorate);
+      .map((row) => decorate(row, readerId));
+  },
+
+  /** Une réservation enrichie, telle que la voit un lecteur donné. */
+  detailed(id, readerId) {
+    const row = db.prepare("SELECT * FROM bookings WHERE id = ?").get(id);
+    return row ? decorate(row, readerId) : null;
   },
 
   /** Le client comme le commerçant peuvent annuler ; chacun sur son périmètre. */
@@ -757,14 +845,16 @@ export const bookings = {
     const allowed =
       booking.customerId === actor.userId || booking.merchantId === actor.merchantId;
     if (!allowed) throw Object.assign(new Error("Réservation introuvable."), { status: 404 });
-    if (booking.status !== "confirmed") return booking;
+    // Déjà annulée : rien ne change, et l'appelant ne doit pas renvoyer de courriel.
+    if (booking.status !== "confirmed") return { ...booking, changed: false };
     db.prepare("UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ? WHERE id = ?").run(
       now(),
       booking.customerId === actor.userId ? "customer" : "merchant",
       id,
     );
-    // Le créneau redevient disponible : la réservation annulée ne le bloque plus.
-    return this.byId(id);
+    // L'index unique ne porte que sur les réservations confirmées : le créneau
+    // redevient réellement réservable.
+    return { ...this.byId(id), changed: true };
   },
 
   /** Vérifie que le compte a accès à cette réservation, et à quel titre. */
@@ -796,14 +886,17 @@ function inflateBooking(row) {
 }
 
 /** Réservation enrichie du commerçant, de la prestation et du client. */
-function decorate(row) {
+function decorate(row, readerId = null) {
   const booking = inflateBooking(row);
   const merchant = merchants.byId(booking.merchantId);
   const service = services.byId(booking.serviceId);
   const customer = users.byId(booking.customerId);
+  // Seuls les messages reçus comptent comme non lus : les siens n'en sont jamais.
   const unread = db
-    .prepare("SELECT COUNT(*) AS n FROM booking_messages WHERE booking_id = ? AND read_at IS NULL")
-    .get(booking.id).n;
+    .prepare(
+      "SELECT COUNT(*) AS n FROM booking_messages WHERE booking_id = ? AND read_at IS NULL AND sender_id != ?",
+    )
+    .get(booking.id, readerId ?? "").n;
   return {
     ...booking,
     merchant: merchant

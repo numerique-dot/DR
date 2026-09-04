@@ -20,6 +20,8 @@ export const config = {
   /** Origine publique, utilisée pour les liens, la vérification CSRF et Stripe. */
   publicUrl: (env.PUBLIC_URL ?? `http://localhost:${Number(env.PORT ?? 3000)}`).replace(/\/$/, ""),
   trustProxy: bool(env.TRUST_PROXY, false),
+  /** Fuseau des dates dans les courriels : le serveur, lui, tourne en UTC. */
+  timezone: env.TIMEZONE ?? "Europe/Paris",
   databaseFile: env.DATABASE_FILE ?? "data/drdu.sqlite",
 
   ai: {
@@ -81,7 +83,10 @@ export const config = {
   /** Fenêtres de limitation de débit, par adresse IP. */
   rateLimits: {
     auth: { windowMs: 15 * 60_000, max: 10 },
+    /** Textes courts (consignes, messages) : nombreux et peu coûteux. */
     translate: { windowMs: 60 * 60_000, max: 400 },
+    /** Documents entiers : rares et chers, accessibles sans compte. */
+    document: { windowMs: 60 * 60_000, max: 30 },
     message: { windowMs: 60 * 60_000, max: 120 },
     booking: { windowMs: 60 * 60_000, max: 20 },
     /** Demandes de réinitialisation : rare par nature, strict par prudence. */

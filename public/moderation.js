@@ -19,7 +19,8 @@ async function load() {
 const STATUS_LABEL = {
   pending: "En attente",
   active: "Publiée",
-  paused: "En pause",
+  paused: "En pause (par le professionnel)",
+  suspended: "Suspendue (par la modération)",
   rejected: "Refusée",
 };
 
@@ -68,7 +69,7 @@ function card(merchant) {
     <div class="profile-actions">
       ${merchant.status !== "active" ? '<button class="btn btn-primary btn-sm" type="button" data-decision="active">Publier</button>' : ""}
       ${merchant.status !== "rejected" ? '<button class="btn btn-ghost btn-sm" type="button" data-decision="rejected">Refuser</button>' : ""}
-      ${merchant.status === "active" ? '<button class="btn btn-ghost btn-sm" type="button" data-decision="paused">Suspendre</button>' : ""}
+      ${merchant.status === "active" ? '<button class="btn btn-ghost btn-sm" type="button" data-decision="suspended">Suspendre</button>' : ""}
     </div>
     <div class="alert" role="alert" hidden></div>`;
 

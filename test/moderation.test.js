@@ -117,3 +117,19 @@ describe("mise en pause par le commerçant", () => {
     await other.close();
   });
 });
+
+describe("suspension par la modération", () => {
+  it("ne peut pas être levée par le commerçant", async () => {
+    const suspended = await admin.put(`/api/admin/merchants/${merchantId}`, { status: "suspended", note: "Signalements répétés." });
+    assert.equal(suspended.body.merchant.status, "suspended");
+    assert.equal((await client.get("/api/catalog")).body.merchants.length, 0);
+
+    const attempt = await pro.put("/api/merchant/visibility", { visible: true });
+    assert.equal(attempt.status, 409, "seule la modération lève une suspension");
+    assert.match(attempt.body.error, /suspendue/);
+    assert.equal((await pro.get("/api/merchant/me")).body.merchant.status, "suspended");
+
+    // La modération, elle, peut rétablir.
+    assert.equal((await admin.put(`/api/admin/merchants/${merchantId}`, { status: "active" })).body.merchant.status, "active");
+  });
+});

@@ -54,7 +54,7 @@ contrat de dix pages.
 
 ```bash
 npm install
-npm test                  # 80 tests
+npm test                  # 90 tests
 npm start                 # http://localhost:3000
 ```
 
@@ -129,16 +129,33 @@ connecté, il ne l'est plus — et un courriel signale la modification. Un mot d
 
 ## Décisions techniques notables
 
-- **Un créneau ne peut pas être réservé deux fois** : `bookings.slot_id` porte une
-  contrainte `UNIQUE`, qui sert de verrou même sous deux requêtes simultanées. Annuler
-  libère le créneau, qui repart au catalogue.
+- **Un créneau ne peut pas être réservé deux fois** : un index unique **partiel** sur
+  `bookings(slot_id) WHERE status = 'confirmed'` sert de verrou même sous deux requêtes
+  simultanées — et, parce qu'il ne porte que sur les réservations en cours, une annulation
+  libère réellement le créneau. (Une contrainte `UNIQUE` pleine l'aurait bloqué à jamais :
+  c'est un défaut relevé en revue, couvert par un test de régression.)
+- **Une prestation qui a servi ne se supprime pas**, elle se désactive : l'historique des
+  clients reste intact. La règle vaut côté application (409 explicite) et côté base
+  (`ON DELETE RESTRICT`).
+- **Une fiche hors catalogue ne reçoit pas de réservation**, même avec un identifiant de
+  créneau connu : en attente, en pause, suspendue ou refusée, la réservation est refusée.
+- **La suspension par la modération est distincte de la pause** : un commerçant remet en
+  ligne une fiche qu'il a lui-même mise en pause, jamais une fiche suspendue.
+- **Une traduction qui échoue n'emporte pas le reste** : dans un fil ou une liste de
+  réservations, l'élément intraduisible est rendu avec son original et sans traduction ;
+  les autres passent.
 - **Unicité réelle des créneaux** : en SQL, deux `NULL` ne sont pas égaux, donc une
   contrainte `UNIQUE(commerçant, instant, prestation)` laissait passer des doublons quand
   la prestation était nulle. La migration 4 pose un index d'expression
   `COALESCE(service_id, '')` — le test le vérifie.
 - **La limitation de débit ne compte que les échecs d'authentification** : une connexion
-  réussie remet le compteur à zéro. Plusieurs personnes derrière une même adresse IP
+  réussie remet le compteur à zéro — mais pas une inscription, qui sinon offrirait un moyen
+  gratuit de réarmer la force brute. Plusieurs personnes derrière une même adresse IP
   (bureau, réseau mobile) n'ont pas à se pénaliser entre elles.
+- **Le courriel de réinitialisation part sans retarder la réponse** : un temps de réponse
+  différent selon que l'adresse existe trahirait les comptes, malgré des corps identiques.
+- **Les dates des courriels sont rendues dans le fuseau du service** (`TIMEZONE`,
+  `Europe/Paris` par défaut) : le serveur, lui, tourne en UTC.
 - **Le cache de traduction est invalidé à l'édition** d'une fiche : un texte modifié n'est
   jamais servi avec son ancienne traduction.
 - **Cloisonnement** : un fil de discussion n'est lisible que par le client et le
@@ -207,6 +224,7 @@ test/                    node:test, base isolée par fichier
 - **Pas de double authentification**, ni de changement de mot de passe depuis un compte
   connecté (seule la procédure « mot de passe oublié » existe).
 - Pas de photos d'établissement (pas de stockage d'objets), pas de notation ni d'avis.
-- Les fuseaux horaires suivent celui du serveur : à traiter avant d'ouvrir hors de France.
+- Un seul fuseau pour les courriels (`TIMEZONE`) ; l'interface suit celui du navigateur.
+  Des commerçants dans plusieurs fuseaux demanderaient un fuseau par établissement.
 - Le build Docker n'a pas pu être exécuté ici (aucun démon) ; la CI le construit.
 - Les traductions sont produites par un modèle : **l'original fait foi**.

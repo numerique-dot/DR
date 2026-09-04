@@ -14,6 +14,8 @@ import {
   history,
   merchants,
   migrate,
+  passwordResets,
+  publicMerchant,
   services,
   sessions,
   slots,
@@ -237,7 +239,6 @@ async function handleSignup(req, res) {
   const body = await readBody(req);
   const user = createUser(body);
   const token = startSession(user.id);
-  forgetRateLimit("auth", req);
   await welcome(user);
   log.info("compte créé", { userId: user.id });
   return json(res, 201, { user: publicUser(user) }, { "set-cookie": sessionCookie(token) });
@@ -260,7 +261,7 @@ function handleLogout(req, res) {
 }
 
 async function handleTranslate(req, res) {
-  guard("translate", req);
+  guard("document", req);
   const body = await readBody(req);
   const user = currentUser(req);
   // Le palier vient de la session, jamais du client.
@@ -346,6 +347,23 @@ async function cachedTranslation(kind, subjectId, text, target) {
   return translations.put(kind, subjectId, target, result);
 }
 
+/**
+ * Traduction d'un élément parmi d'autres : l'échec (refus du modèle, panne,
+ * quota atteint) est journalisé et rend null, jamais propagé — l'original
+ * suffit à ne pas bloquer le lecteur.
+ */
+async function tolerantTranslation(kind, subjectId, text, target, req) {
+  const cached = translations.get(kind, subjectId, target);
+  if (cached) return cached.translation ?? null;
+  try {
+    guard("translate", req);
+    return (await cachedTranslation(kind, subjectId, text, target))?.translation ?? null;
+  } catch (error) {
+    log.warn("traduction indisponible pour un élément", { kind, subjectId, error: error.message });
+    return null;
+  }
+}
+
 /* ---------- Catalogue public ---------- */
 
 function handleCatalog(req, res) {
@@ -363,7 +381,7 @@ function handleMerchantDetail(req, res, merchantId) {
   const url = new URL(req.url, config.publicUrl);
   const serviceId = url.searchParams.get("prestation");
   return json(res, 200, {
-    merchant,
+    merchant: publicMerchant(merchant),
     services: services.forMerchant(merchant.id, { onlyActive: true }),
     slots: slots.available(merchant.id, { serviceId: serviceId || null }),
   });
@@ -393,7 +411,6 @@ async function handleMerchantUpdate(req, res) {
   if (merchant.status === "rejected") {
     updated = merchants.setStatus(merchant.id, config.features.merchantAutoApprove ? "active" : "pending", "");
   }
-  translations.invalidate("merchant", merchant.id);
   return json(res, 200, { merchant: updated });
 }
 
@@ -415,7 +432,10 @@ async function handleServiceUpdate(req, res, serviceId) {
 
 function handleServiceDelete(req, res, serviceId) {
   const { merchant } = requireMerchant(req);
-  if (!services.remove(merchant.id, serviceId)) return json(res, 404, { error: "Prestation introuvable." });
+  const service = services.byId(serviceId);
+  if (!service || service.merchantId !== merchant.id) return json(res, 404, { error: "Prestation introuvable." });
+  // Refuse avec 409 si des réservations en cours dépendent de la prestation.
+  services.remove(merchant.id, serviceId);
   return json(res, 200, { ok: true });
 }
 
@@ -459,7 +479,7 @@ async function handleBookingCreate(req, res) {
     note: String(body.note ?? "").slice(0, 1000),
     noteLang: normalizeLocale(body.noteLang ?? user.locale),
   });
-  const detailed = bookings.forCustomer(user.id).find((row) => row.id === booking.id);
+  const detailed = bookings.detailed(booking.id, user.id);
   await bookingConfirmation(detailed, user);
   log.info("réservation créée", { reference: booking.reference, merchantId: booking.merchantId });
   return json(res, 201, { booking: detailed });
@@ -474,9 +494,12 @@ async function handleBookingCancel(req, res, bookingId) {
   const user = requireUser(req);
   const merchant = merchants.byOwner(user.id);
   const cancelled = bookings.cancel(bookingId, { userId: user.id, merchantId: merchant?.id });
-  const detailed = bookings.forCustomer(cancelled.customerId).find((row) => row.id === cancelled.id);
-  await bookingCancelled(detailed);
-  log.info("réservation annulée", { reference: cancelled.reference, by: cancelled.cancelledBy });
+  const detailed = bookings.detailed(cancelled.id, user.id);
+  // Un second appel sur une réservation déjà annulée ne renvoie pas de courriel.
+  if (cancelled.changed) {
+    await bookingCancelled(detailed);
+    log.info("réservation annulée", { reference: cancelled.reference, by: cancelled.cancelledBy });
+  }
   return json(res, 200, { booking: detailed });
 }
 
@@ -488,13 +511,12 @@ async function handleBookingCancel(req, res, bookingId) {
 async function handleMerchantBookings(req, res) {
   const { user, merchant } = requireMerchant(req);
   const target = readerLocale(req, user);
-  const rows = bookings.forMerchant(merchant.id);
+  const rows = bookings.forMerchant(merchant.id, user.id);
   const out = [];
   for (const booking of rows) {
     let noteTranslation = null;
     if (booking.note && booking.noteLang !== target) {
-      guard("translate", req);
-      noteTranslation = (await cachedTranslation("note", booking.id, booking.note, target))?.translation ?? null;
+      noteTranslation = await tolerantTranslation("note", booking.id, booking.note, target, req);
     }
     out.push({ ...booking, noteTranslation });
   }
@@ -513,16 +535,9 @@ async function handleBookingMessages(req, res, bookingId) {
   const out = [];
   for (const message of bookingMessages.list(bookingId)) {
     const mine = message.senderId === user.id;
-    let translation = null;
-    if (!mine) {
-      const cache = translations.get("message", message.id, target);
-      if (cache) {
-        translation = cache.translation;
-      } else {
-        guard("translate", req);
-        translation = (await cachedTranslation("message", message.id, message.body, target))?.translation ?? null;
-      }
-    }
+    // L'original est toujours rendu ; la traduction, si elle échoue, manque
+    // pour ce seul message au lieu de faire tomber tout le fil.
+    const translation = mine ? null : await tolerantTranslation("message", message.id, message.body, target, req);
     out.push({
       id: message.id,
       mine,
@@ -597,13 +612,13 @@ async function handleVisibility(req, res) {
   const { merchant } = requireMerchant(req);
   const body = await readBody(req);
   const wanted = body.visible === false ? "paused" : "active";
-  if (["pending", "rejected"].includes(merchant.status)) {
-    return json(res, 409, {
-      error:
-        merchant.status === "pending"
-          ? "Votre fiche attend encore la validation de la modération."
-          : "Votre fiche a été refusée : corrigez-la, elle repassera en validation.",
-    });
+  if (!merchants.SELF_SERVICE.includes(merchant.status)) {
+    const reasons = {
+      pending: "Votre fiche attend encore la validation de la modération.",
+      rejected: "Votre fiche a été refusée : corrigez-la, elle repassera en validation.",
+      suspended: "Votre fiche a été suspendue par la modération : contactez-nous pour la rétablir.",
+    };
+    return json(res, 409, { error: reasons[merchant.status] ?? "Statut non modifiable." });
   }
   return json(res, 200, { merchant: merchants.setStatus(merchant.id, wanted, merchant.moderationNote) });
 }
@@ -615,7 +630,8 @@ async function handleForgotPassword(req, res) {
   const body = await readBody(req);
   const opened = openPasswordReset(body.email);
   if (opened) {
-    await passwordResetRequested(opened.user, opened.token);
+    // Sans attendre l'envoi : un temps de réponse différent trahirait l'existence du compte.
+    void passwordResetRequested(opened.user, opened.token);
     log.info("demande de réinitialisation", { userId: opened.user.id });
   } else {
     log.info("demande de réinitialisation pour une adresse inconnue", { ip: clientIp(req) });
@@ -791,12 +807,15 @@ export function createApp() {
 }
 
 /** Nettoyage périodique des sessions expirées. */
+export function housekeep() {
+  const removed = sessions.prune();
+  const tokens = passwordResets.prune();
+  if (removed || tokens) log.info("purge", { sessions: removed, jetonsDeReinitialisation: tokens });
+  return { sessions: removed, tokens };
+}
+
 export function startHousekeeping() {
-  const timer = setInterval(() => {
-    const removed = sessions.prune();
-    const tokens = passwordResets.prune();
-    if (removed || tokens) log.info("purge", { sessions: removed, jetonsDeReinitialisation: tokens });
-  }, 6 * 3_600_000);
+  const timer = setInterval(housekeep, 6 * 3_600_000);
   timer.unref();
   return timer;
 }

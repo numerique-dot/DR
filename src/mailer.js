@@ -91,7 +91,7 @@ ${config.service.name}`,
 
 const euros = (cents) => (cents / 100).toFixed(2).replace(".", ",");
 const moment = (iso, locale = "fr-FR") =>
-  new Date(iso).toLocaleString(locale, { dateStyle: "full", timeStyle: "short" });
+  new Date(iso).toLocaleString(locale, { dateStyle: "full", timeStyle: "short", timeZone: config.timezone });
 
 export function bookingConfirmation(booking, customer) {
   return send({
