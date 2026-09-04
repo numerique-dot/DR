@@ -284,12 +284,13 @@ async function handleBillingReturn() {
 /* ---------- Onglets et effets communs ---------- */
 
 /** Onglets d'une page : chaque bouton [data-view] montre la section #view-<nom>. */
-export function setupTabs(onChange) {
-  const tabs = [...document.querySelectorAll(".app-tab")];
+export function setupTabs(onChange, root = document) {
+  // Le paramètre root limite la portée : plusieurs jeux d'onglets peuvent coexister dans un document.
+  const tabs = [...root.querySelectorAll(".app-tab")];
   if (!tabs.length) return () => {};
   const show = (name) => {
     for (const tab of tabs) tab.setAttribute("aria-selected", String(tab.dataset.view === name));
-    for (const section of document.querySelectorAll(".app-view")) {
+    for (const section of root.querySelectorAll(".app-view")) {
       section.hidden = section.id !== `view-${name}`;
     }
     if (window.location.hash.slice(1) !== name) history.replaceState(null, "", `#${name}`);
