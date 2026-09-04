@@ -71,6 +71,13 @@ export const config = {
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean),
 
+  notifications: {
+    /** Délai de regroupement des messages avant l'envoi d'un seul courriel. */
+    digestMinutes: Number(env.NOTIFY_DIGEST_MINUTES ?? 10),
+    /** Fréquence de la vérification de la file (secondes). */
+    sweepSeconds: Number(env.NOTIFY_SWEEP_SECONDS ?? 60),
+  },
+
   limits: {
     /** 12 Mo de corps JSON, soit environ 9 Mo de fichier après base64. */
     bodyBytes: Number(env.MAX_BODY_BYTES ?? 12 * 1024 * 1024),

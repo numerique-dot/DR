@@ -38,7 +38,9 @@ import {
 import { applyEvent, portalUrl, startCheckout, verifySignature } from "./billing.js";
 import {
   bookingCancelled,
+  bookingCancelledForMerchant,
   bookingConfirmation,
+  newBookingForMerchant,
   merchantApproved,
   merchantRejected,
   passwordChanged,
@@ -48,6 +50,7 @@ import {
 import { LANGUAGES, translateDocument } from "./ai.js";
 import { translateShortText } from "./ai-text.js";
 import { LOCALES, dictionary, normalizeLocale } from "./i18n.js";
+import { noteNewMessage, noteThreadRead } from "./notifications.js";
 import {
   clientIp,
   forgetRateLimit,
@@ -481,6 +484,15 @@ async function handleBookingCreate(req, res) {
   });
   const detailed = bookings.detailed(booking.id, user.id);
   await bookingConfirmation(detailed, user);
+  const owner = merchants.owner(booking.merchantId);
+  if (owner) {
+    const ownerLocale = normalizeLocale(owner.locale);
+    const noteTranslation =
+      detailed.note && detailed.noteLang !== ownerLocale
+        ? await tolerantTranslation("note", detailed.id, detailed.note, ownerLocale, req)
+        : null;
+    await newBookingForMerchant(detailed, owner, noteTranslation);
+  }
   log.info("réservation créée", { reference: booking.reference, merchantId: booking.merchantId });
   return json(res, 201, { booking: detailed });
 }
@@ -497,7 +509,12 @@ async function handleBookingCancel(req, res, bookingId) {
   const detailed = bookings.detailed(cancelled.id, user.id);
   // Un second appel sur une réservation déjà annulée ne renvoie pas de courriel.
   if (cancelled.changed) {
-    await bookingCancelled(detailed);
+    if (cancelled.cancelledBy === "merchant") {
+      await bookingCancelled(detailed);
+    } else {
+      const owner = merchants.owner(cancelled.merchantId);
+      if (owner) await bookingCancelledForMerchant(detailed, owner);
+    }
     log.info("réservation annulée", { reference: cancelled.reference, by: cancelled.cancelledBy });
   }
   return json(res, 200, { booking: detailed });
@@ -548,6 +565,7 @@ async function handleBookingMessages(req, res, bookingId) {
     });
   }
   bookingMessages.markRead(bookingId, user.id);
+  noteThreadRead(user.id, bookingId);
   return json(res, 200, { messages: out, target, role: access.role });
 }
 
@@ -562,6 +580,7 @@ async function handleBookingMessageSend(req, res, bookingId) {
   if (text.length > 2000) return json(res, 413, { error: "Message trop long (2000 caractères maximum)." });
   guard("message", req);
   const message = bookingMessages.create(bookingId, user.id, access.role, text);
+  noteNewMessage(access.booking, user.id);
   return json(res, 201, { id: message.id, createdAt: message.created_at });
 }
 

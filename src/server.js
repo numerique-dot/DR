@@ -1,11 +1,13 @@
 import { config, assertProductionReady } from "./config.js";
 import { log } from "./logger.js";
 import { createApp, startHousekeeping } from "./app.js";
+import { startNotificationSweep } from "./notifications.js";
 
 for (const warning of assertProductionReady()) log.warn(warning);
 
 const server = createApp();
 startHousekeeping();
+startNotificationSweep();
 
 server.listen(config.port, config.host, () => {
   log.info("D.R. RDV en écoute", {

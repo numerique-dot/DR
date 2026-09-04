@@ -204,3 +204,67 @@ ${config.service.email}.
 ${config.service.name}`,
   });
 }
+
+/* ---------- Notifications aux commerçants et aux clients ---------- */
+
+import { formatWhen, texts } from "./mail-texts.js";
+
+/** Nouvelle réservation, annoncée au commerçant dans sa langue. */
+export function newBookingForMerchant(booking, owner, noteTranslation = null) {
+  const t = texts(owner.locale);
+  const data = {
+    owner: owner.name,
+    customer: booking.customer?.name ?? "",
+    email: booking.customer?.email ?? "",
+    service: booking.service?.name ?? "",
+    when: formatWhen(booking.startsAt, owner.locale, config.timezone),
+    reference: booking.reference,
+    note: booking.note,
+    noteTranslation,
+    url: `${config.publicUrl}/pro#reservations`,
+  };
+  return send({
+    to: owner.email,
+    subject: t.newBooking.subject(data),
+    text: t.newBooking.body(data) + t.signature(config.service.name),
+  });
+}
+
+/** Annulation par le client, annoncée au commerçant dans sa langue. */
+export function bookingCancelledForMerchant(booking, owner) {
+  const t = texts(owner.locale);
+  const data = {
+    owner: owner.name,
+    customer: booking.customer?.name ?? "",
+    service: booking.service?.name ?? "",
+    when: formatWhen(booking.startsAt, owner.locale, config.timezone),
+    reference: booking.reference,
+    url: `${config.publicUrl}/pro#agenda`,
+  };
+  return send({
+    to: owner.email,
+    subject: t.bookingCancelledByCustomer.subject(data),
+    text: t.bookingCancelledByCustomer.body(data) + t.signature(config.service.name),
+  });
+}
+
+/**
+ * Récapitulatif des messages reçus, pour un client ou un commerçant.
+ * @param {object} recipient compte destinataire
+ * @param {Array<{who:string, service:string, startsAt:string, count:number}>} lines
+ * @param {string} url où lire et répondre
+ */
+export function messageDigest(recipient, lines, url) {
+  const t = texts(recipient.locale);
+  const total = lines.reduce((sum, line) => sum + line.count, 0);
+  const data = { name: recipient.name, total, url };
+  const body = [
+    t.digest.intro(data),
+    ...lines.map((line) =>
+      t.digest.line({ ...line, when: formatWhen(line.startsAt, recipient.locale, config.timezone) }),
+    ),
+    t.digest.outro(data),
+    t.signature(config.service.name),
+  ].join("\n");
+  return send({ to: recipient.email, subject: t.digest.subject(data), text: body });
+}
