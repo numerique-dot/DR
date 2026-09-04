@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>D.R DU — réserver un professionnel</title>
-<meta name="description" content="Parcourez les professionnels par ville et par métier, réservez un créneau, échangez dans votre langue." />
+<title>D.R DU — nouveau mot de passe</title>
+<meta name="description" content="Choisissez un nouveau mot de passe à partir du lien reçu par courriel." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000091'/%3E%3Cpath d='M9 7h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm2 6v3h3v-3h-3zm5 0v3h3v-3h-3zm-5 5v3h3v-3h-3zm5 0v3h3v-3h-3z' fill='%23ffffff'/%3E%3C/svg%3E" />
 <meta name="theme-color" content="#000091" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#10101a" media="(prefers-color-scheme: dark)" />
-<meta property="og:title" content="D.R DU — réserver un professionnel" />
-<meta property="og:description" content="Parcourez les professionnels par ville et par métier, réservez un créneau, échangez dans votre langue." />
+<meta property="og:title" content="D.R DU — nouveau mot de passe" />
+<meta property="og:description" content="Choisissez un nouveau mot de passe à partir du lien reçu par courriel." />
 <meta property="og:locale" content="fr_FR" />
 <link rel="manifest" href="/site.webmanifest" />
 <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
@@ -27,7 +27,7 @@
       <span class="brand-text">D.R&nbsp;DU<small data-i18n="brand.tagline">Réservation en ligne · multilingue</small></span>
     </a>
     <nav aria-label="Navigation principale">
-      <a href="/reserver" aria-current="page" data-i18n="nav.catalogue">Réserver</a>
+      <a href="/reserver" data-i18n="nav.catalogue">Réserver</a>
       <a href="/reserver#mes-reservations" data-i18n="nav.bookings">Mes réservations</a>
       <a href="/pro" data-i18n="nav.pro">Espace professionnel</a>
       <a href="/traduction" data-i18n="nav.translation">Traduction</a>
@@ -48,69 +48,36 @@
     </div>
   </div>
 </header>
-<script src="/reserver.js" type="module"></script>
+<script src="/reinitialiser.js" type="module"></script>
 
-<main id="contenu" class="app">
-  <div class="wrap">
-    <div class="app-tabs" role="tablist" aria-label="Sections">
-      <button class="app-tab" type="button" role="tab" data-view="catalogue" aria-selected="true" data-i18n="nav.catalogue">Réserver</button>
-      <button class="app-tab" type="button" role="tab" data-view="mes-reservations" aria-selected="false">
-        <span data-i18n="nav.bookings">Mes réservations</span> <span id="unread-badge" class="unread" hidden></span>
-      </button>
+<main id="contenu" class="section">
+  <div class="wrap legal">
+    <p class="eyebrow">Compte</p>
+    <h1>Choisir un nouveau mot de passe</h1>
+
+    <div id="reset-missing" hidden>
+      <p class="lede">Ce lien est incomplet. Ouvrez celui reçu par courriel, ou demandez-en un nouveau.</p>
+      <p><button class="btn btn-primary" type="button" data-auth="forgot">Recevoir un nouveau lien</button></p>
     </div>
 
-    <!-- Catalogue -->
-    <section id="view-catalogue" class="app-view">
-      <header class="section-head">
-        <h1 data-i18n="catalog.title">Trouver un professionnel</h1>
-        <p data-i18n="catalog.subtitle">Les créneaux affichés sont libres à l'instant où vous lisez cette page.</p>
-      </header>
-      <form id="filters" class="filters">
-        <label><span data-i18n="catalog.city">Ville</span>
-          <select id="filter-city"><option value="">Toutes</option></select>
-        </label>
-        <label><span data-i18n="catalog.category">Métier</span>
-          <select id="filter-category"><option value="">Tous</option></select>
-        </label>
-      </form>
-      <div id="catalog-list" class="merchant-grid" aria-live="polite"></div>
-    </section>
+    <form id="reset-form" class="profile-form" hidden>
+      <p class="lede">Le lien n'est utilisable qu'une fois. Vos autres sessions seront fermées.</p>
+      <label>Nouveau mot de passe <em>(10 caractères minimum)</em>
+        <input type="password" name="password" minlength="10" required autocomplete="new-password" />
+      </label>
+      <label>Confirmation
+        <input type="password" name="confirm" minlength="10" required autocomplete="new-password" />
+      </label>
+      <div id="reset-error" class="alert" role="alert" hidden></div>
+      <button class="btn btn-primary" type="submit">Enregistrer le nouveau mot de passe</button>
+    </form>
 
-    <!-- Mes réservations -->
-    <section id="view-mes-reservations" class="app-view" hidden>
-      <header class="section-head">
-        <h1 data-i18n="nav.bookings">Mes réservations</h1>
-        <p>Annulation possible à tout moment ; le créneau repart au catalogue.</p>
-      </header>
-      <div id="bookings-gate" class="gate" hidden>
-        <p class="lede">Connectez-vous pour retrouver vos réservations.</p>
-        <p><button class="btn btn-primary" type="button" data-auth="login">Se connecter</button></p>
-      </div>
-      <div id="bookings-list" class="booking-list" aria-live="polite"></div>
-    </section>
+    <div id="reset-done" hidden>
+      <p class="lede">Votre mot de passe est modifié. Vous pouvez vous connecter.</p>
+      <p><button class="btn btn-primary" type="button" data-auth="login">Se connecter</button></p>
+    </div>
   </div>
 </main>
-
-<dialog id="booking-dialog" class="booking">
-  <form id="booking-form" method="dialog">
-    <h2>Réserver</h2>
-    <p id="booking-merchant" class="booking-doctor"></p>
-    <label><span data-i18n="booking.service">Prestation</span>
-      <select id="booking-service" required></select>
-    </label>
-    <label><span data-i18n="booking.slot">Créneau</span>
-      <select id="booking-slot" required></select>
-    </label>
-    <label><span data-i18n="booking.note">Précision pour le professionnel (facultatif)</span>
-      <textarea id="booking-note" rows="3" placeholder="Écrivez dans votre langue : le professionnel la lira dans la sienne."></textarea>
-    </label>
-    <div id="booking-error" class="alert" role="alert" hidden></div>
-    <div class="booking-actions">
-      <button class="btn btn-ghost" value="cancel" formnovalidate>Annuler</button>
-      <button class="btn btn-primary" id="booking-submit" value="confirm" data-i18n="booking.confirm">Confirmer la réservation</button>
-    </div>
-  </form>
-</dialog>
 
 <footer class="footer">
   <div class="wrap">

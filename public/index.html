@@ -262,6 +262,22 @@
   </div>
 </footer>
 
+<dialog id="forgot" class="booking">
+  <form id="forgot-form" method="dialog">
+    <h2>Mot de passe oublié</h2>
+    <div id="forgot-fields">
+      <p class="booking-doctor">Indiquez l'adresse de votre compte : un lien de réinitialisation vous sera envoyé.</p>
+      <label>Courriel<input name="email" type="email" required autocomplete="email" /></label>
+    </div>
+    <p id="forgot-done" class="lede" hidden></p>
+    <div id="forgot-error" class="alert" role="alert" hidden></div>
+    <div class="booking-actions">
+      <button class="btn btn-ghost" value="cancel" formnovalidate>Fermer</button>
+      <button class="btn btn-primary" id="forgot-submit" value="confirm">Envoyer le lien</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="auth" class="booking">
   <form id="auth-form" method="dialog">
     <h2 id="auth-title">Devenir membre</h2>

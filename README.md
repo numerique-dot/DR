@@ -54,7 +54,7 @@ contrat de dix pages.
 
 ```bash
 npm install
-npm test                  # 61 tests
+npm test                  # 80 tests
 npm start                 # http://localhost:3000
 ```
 
@@ -70,6 +70,8 @@ l'interface et refusés au démarrage en production.
 | `/reserver` | catalogue, réservation, « mes réservations », fils de discussion |
 | `/pro` | inscription et back-office : agenda, réservations, prestations, fiche |
 | `/traduction` | outil de traduction de documents |
+| `/moderation` | file de validation des fiches (comptes de `ADMIN_EMAILS`) |
+| `/reinitialiser` | choix d'un nouveau mot de passe depuis le lien reçu |
 | `/mentions-legales` `/confidentialite` `/cgu` `/accessibilite` | obligations légales |
 
 ## API
@@ -79,6 +81,9 @@ l'interface et refusés au démarrage en production.
 | `GET` | `/healthz` | sonde (état, version, modes) |
 | `GET` | `/api/config` | modes, langues, dictionnaire, catégories, utilisateur, établissement |
 | `POST` | `/api/auth/signup` · `/login` · `/logout` | comptes et session |
+| `POST` | `/api/auth/forgot` · `/reset` | réinitialisation du mot de passe |
+| `GET` · `PUT` | `/api/admin/merchants[/:id]` | file de validation et décisions |
+| `PUT` | `/api/merchant/visibility` | mise en pause ou remise en ligne de sa fiche |
 | `PUT` | `/api/locale` | langue de l'interface |
 | `GET` | `/api/catalog` | catalogue public (`?ville=`, `?categorie=`) |
 | `GET` | `/api/merchants/:id` | fiche, prestations et créneaux libres |
@@ -93,6 +98,34 @@ l'interface et refusés au démarrage en production.
 | `POST` | `/api/translate` | traduction de document |
 | `GET` · `DELETE` | `/api/history[/:id]` | historique — 404 si la conservation est désactivée |
 | `POST` | `/api/billing/checkout` · `/portal` · `/webhook` | abonnement Membre |
+
+## Validation des fiches
+
+`MERCHANT_AUTO_APPROVE=true` (défaut) publie une fiche dès son dépôt. À `false`, elle part
+en file d'attente et n'apparaît pas au catalogue tant qu'un modérateur ne l'a pas publiée —
+le serveur refuse alors de démarrer si `ADMIN_EMAILS` est vide, faute de quoi aucune fiche
+ne pourrait jamais paraître.
+
+Le statut d'une fiche suit quatre états : **en attente**, **publiée**, **en pause** (le
+commerçant l'a retirée lui-même), **refusée**. Un refus **exige un motif** : le professionnel
+doit savoir quoi corriger, et il le lit dans son back-office comme dans le courriel reçu.
+Une fiche refusée puis modifiée **repasse automatiquement en validation**.
+
+Le rôle de modérateur n'est pas stocké en base : il découle de `ADMIN_EMAILS`. Une écriture
+malencontreuse ne peut donc promouvoir personne, et retirer un modérateur revient à changer
+une variable puis redémarrer.
+
+## Mot de passe oublié
+
+Demande depuis le dialogue de connexion : la réponse est **la même que l'adresse existe ou
+non**, et aucun courriel ne part vers une adresse inconnue. Le lien vaut une heure
+(`PASSWORD_RESET_MINUTES`), ne sert **qu'une fois**, et une nouvelle demande annule la
+précédente. Seul le condensé du jeton est stocké : une fuite du fichier ne permet pas de
+fabriquer un lien valide.
+
+Au changement, **toutes les sessions ouvertes sont fermées** — si quelqu'un d'autre était
+connecté, il ne l'est plus — et un courriel signale la modification. Un mot de passe refusé
+(trop court) ne consomme pas le lien : l'utilisateur peut réessayer.
 
 ## Décisions techniques notables
 
@@ -171,7 +204,8 @@ test/                    node:test, base isolée par fichier
 ## Limites connues
 
 - **Une seule instance** : limitation de débit en mémoire, SQLite local.
-- **Pas de réinitialisation de mot de passe** ni de double authentification.
+- **Pas de double authentification**, ni de changement de mot de passe depuis un compte
+  connecté (seule la procédure « mot de passe oublié » existe).
 - Pas de photos d'établissement (pas de stockage d'objets), pas de notation ni d'avis.
 - Les fuseaux horaires suivent celui du serveur : à traiter avant d'ouvrir hors de France.
 - Le build Docker n'a pas pu être exécuté ici (aucun démon) ; la CI le construit.

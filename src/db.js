@@ -177,6 +177,23 @@ const MIGRATIONS = [
         ON slots(merchant_id, starts_at, COALESCE(service_id, ''));
     `,
   },
+  {
+    id: 5,
+    name: "modération des établissements et réinitialisation de mot de passe",
+    sql: `
+      ALTER TABLE merchants ADD COLUMN moderation_note TEXT NOT NULL DEFAULT '';
+      ALTER TABLE merchants ADD COLUMN reviewed_at TEXT;
+
+      CREATE TABLE password_resets (
+        token_hash TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used_at TEXT
+      );
+      CREATE INDEX password_resets_user ON password_resets(user_id);
+    `,
+  },
 ];
 
 export function migrate() {
@@ -231,6 +248,10 @@ export const users = {
   },
   setLocale(userId, locale) {
     db.prepare("UPDATE users SET locale = ? WHERE id = ?").run(locale, userId);
+    return this.byId(userId);
+  },
+  setPassword(userId, password) {
+    db.prepare("UPDATE users SET password = ? WHERE id = ?").run(password, userId);
     return this.byId(userId);
   },
   setCustomerId(userId, customerId) {
@@ -408,9 +429,40 @@ export const merchants = {
     return this.byId(id);
   },
 
-  setStatus(id, status) {
-    db.prepare("UPDATE merchants SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), id);
+  /** Statuts possibles d'une fiche, du dépôt à la publication. */
+  STATUSES: ["pending", "active", "paused", "rejected"],
+
+  setStatus(id, status, note = "") {
+    if (!merchants.STATUSES.includes(status)) {
+      throw Object.assign(new Error("Statut inconnu."), { status: 400 });
+    }
+    db.prepare(
+      "UPDATE merchants SET status = ?, moderation_note = ?, reviewed_at = ?, updated_at = ? WHERE id = ?",
+    ).run(status, note, now(), now(), id);
     return this.byId(id);
+  },
+
+  /** Vue de modération : toutes les fiches, ou celles d'un statut donné. */
+  forModeration(status = null) {
+    const rows = status
+      ? db.prepare("SELECT * FROM merchants WHERE status = ? ORDER BY created_at").all(status)
+      : db.prepare("SELECT * FROM merchants ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at").all();
+    return rows.map((row) => {
+      const merchant = inflateMerchant(row);
+      const owner = users.byId(row.owner_id);
+      return {
+        ...merchant,
+        moderationNote: row.moderation_note,
+        reviewedAt: row.reviewed_at,
+        owner: owner ? { name: owner.name, email: owner.email } : null,
+        services: services.forMerchant(merchant.id).length,
+      };
+    });
+  },
+
+  counts() {
+    const rows = db.prepare("SELECT status, COUNT(*) AS n FROM merchants GROUP BY status").all();
+    return Object.fromEntries(rows.map((row) => [row.status, row.n]));
   },
 
   /** Catalogue public : établissements actifs, filtrables par ville et catégorie. */
@@ -491,6 +543,7 @@ function inflateMerchant(row) {
     phone: row.phone,
     languages: JSON.parse(row.languages),
     status: row.status,
+    moderationNote: row.moderation_note ?? "",
     createdAt: row.created_at,
   };
 }
@@ -811,6 +864,45 @@ export const translations = {
   },
   invalidate(kind, subjectId) {
     db.prepare("DELETE FROM translations WHERE subject_kind = ? AND subject_id = ?").run(kind, subjectId);
+  },
+};
+
+/* ---------- Réinitialisation de mot de passe ---------- */
+
+export const passwordResets = {
+  /**
+   * Crée un jeton à usage unique. Seul son condensé est stocké : une fuite du
+   * fichier ne permet pas de fabriquer un lien valide.
+   */
+  create(userId, ttlMinutes) {
+    const token = crypto.randomBytes(32).toString("base64url");
+    // Une nouvelle demande annule les précédentes.
+    db.prepare("DELETE FROM password_resets WHERE user_id = ? AND used_at IS NULL").run(userId);
+    db.prepare(
+      "INSERT INTO password_resets (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      crypto.createHash("sha256").update(token).digest("hex"),
+      userId,
+      now(),
+      new Date(Date.now() + ttlMinutes * 60_000).toISOString(),
+    );
+    return token;
+  },
+
+  /** Rend l'utilisateur si le jeton est valide, non expiré et non utilisé. */
+  claim(token) {
+    if (!token) return null;
+    const hash = crypto.createHash("sha256").update(String(token)).digest("hex");
+    const row = db
+      .prepare("SELECT * FROM password_resets WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?")
+      .get(hash, now());
+    if (!row) return null;
+    db.prepare("UPDATE password_resets SET used_at = ? WHERE token_hash = ?").run(now(), hash);
+    return users.byId(row.user_id);
+  },
+
+  prune() {
+    return db.prepare("DELETE FROM password_resets WHERE expires_at <= ?").run(now()).changes;
   },
 };
 

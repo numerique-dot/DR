@@ -22,16 +22,27 @@ import {
 } from "./db.js";
 import {
   authenticate,
+  completePasswordReset,
   createUser,
   currentUser,
   endSession,
+  isAdmin,
+  openPasswordReset,
   publicUser,
   sessionCookie,
   sessionToken,
   startSession,
 } from "./auth.js";
 import { applyEvent, portalUrl, startCheckout, verifySignature } from "./billing.js";
-import { bookingConfirmation, bookingCancelled, welcome } from "./mailer.js";
+import {
+  bookingCancelled,
+  bookingConfirmation,
+  merchantApproved,
+  merchantRejected,
+  passwordChanged,
+  passwordResetRequested,
+  welcome,
+} from "./mailer.js";
 import { LANGUAGES, translateDocument } from "./ai.js";
 import { translateShortText } from "./ai-text.js";
 import { LOCALES, dictionary, normalizeLocale } from "./i18n.js";
@@ -376,7 +387,12 @@ async function handleMerchantCreate(req, res) {
 async function handleMerchantUpdate(req, res) {
   const { merchant } = requireMerchant(req);
   const body = await readBody(req);
-  const updated = merchants.update(merchant.id, merchants.validate(body));
+  let updated = merchants.update(merchant.id, merchants.validate(body));
+  // Une fiche refusée puis corrigée repart en validation ; sinon on ne touche
+  // pas au statut (une fiche en pause le reste tant que le commerçant le veut).
+  if (merchant.status === "rejected") {
+    updated = merchants.setStatus(merchant.id, config.features.merchantAutoApprove ? "active" : "pending", "");
+  }
   translations.invalidate("merchant", merchant.id);
   return json(res, 200, { merchant: updated });
 }
@@ -534,6 +550,93 @@ async function handleBookingMessageSend(req, res, bookingId) {
   return json(res, 201, { id: message.id, createdAt: message.created_at });
 }
 
+
+/* ---------- Modération des établissements ---------- */
+
+function requireAdmin(req) {
+  const user = requireUser(req);
+  if (!isAdmin(user)) throw Object.assign(new Error("Accès réservé à la modération."), { status: 403 });
+  return user;
+}
+
+function handleModerationList(req, res) {
+  requireAdmin(req);
+  const status = new URL(req.url, config.publicUrl).searchParams.get("statut");
+  return json(res, 200, {
+    merchants: merchants.forModeration(merchants.STATUSES.includes(status) ? status : null),
+    counts: merchants.counts(),
+    statuses: merchants.STATUSES,
+  });
+}
+
+/** Publication, refus ou suspension d'une fiche par la modération. */
+async function handleModerationDecision(req, res, merchantId) {
+  requireAdmin(req);
+  const body = await readBody(req);
+  const merchant = merchants.byId(merchantId);
+  if (!merchant) return json(res, 404, { error: "Établissement introuvable." });
+  const status = String(body.status ?? "");
+  if (!merchants.STATUSES.includes(status)) return json(res, 400, { error: "Statut inconnu." });
+  const note = String(body.note ?? "").slice(0, 1000);
+  if (status === "rejected" && !note.trim()) {
+    return json(res, 400, { error: "Un refus doit être motivé : le commerçant doit savoir quoi corriger." });
+  }
+
+  const updated = merchants.setStatus(merchantId, status, note);
+  const owner = users.byId(merchant.ownerId);
+  if (owner && merchant.status !== status) {
+    if (status === "active") await merchantApproved(updated, owner);
+    if (status === "rejected") await merchantRejected(updated, owner, note);
+  }
+  log.info("fiche modérée", { merchantId, from: merchant.status, to: status });
+  return json(res, 200, { merchant: updated });
+}
+
+/** Le commerçant met sa fiche en pause, ou la remet en ligne. */
+async function handleVisibility(req, res) {
+  const { merchant } = requireMerchant(req);
+  const body = await readBody(req);
+  const wanted = body.visible === false ? "paused" : "active";
+  if (["pending", "rejected"].includes(merchant.status)) {
+    return json(res, 409, {
+      error:
+        merchant.status === "pending"
+          ? "Votre fiche attend encore la validation de la modération."
+          : "Votre fiche a été refusée : corrigez-la, elle repassera en validation.",
+    });
+  }
+  return json(res, 200, { merchant: merchants.setStatus(merchant.id, wanted, merchant.moderationNote) });
+}
+
+/* ---------- Réinitialisation de mot de passe ---------- */
+
+async function handleForgotPassword(req, res) {
+  guard("reset", req);
+  const body = await readBody(req);
+  const opened = openPasswordReset(body.email);
+  if (opened) {
+    await passwordResetRequested(opened.user, opened.token);
+    log.info("demande de réinitialisation", { userId: opened.user.id });
+  } else {
+    log.info("demande de réinitialisation pour une adresse inconnue", { ip: clientIp(req) });
+  }
+  // Réponse identique dans tous les cas : l'existence d'un compte ne se déduit pas.
+  return json(res, 200, {
+    ok: true,
+    message: "Si un compte existe pour cette adresse, un lien vient d'être envoyé.",
+  });
+}
+
+async function handleResetPassword(req, res) {
+  guard("reset", req);
+  const body = await readBody(req);
+  const user = completePasswordReset(body.token, body.password);
+  await passwordChanged(user);
+  log.info("mot de passe réinitialisé", { userId: user.id });
+  // Sessions fermées : l'utilisateur se reconnecte avec son nouveau mot de passe.
+  return json(res, 200, { ok: true }, { "set-cookie": sessionCookie(null, { clear: true }) });
+}
+
 /* ---------- Serveur ---------- */
 
 export function createApp() {
@@ -583,6 +686,7 @@ export function createApp() {
           dictionary: dictionary(locale),
           categories: CATEGORIES,
           merchant: user ? merchants.byOwner(user.id) : null,
+          moderation: isAdmin(user) ? merchants.counts() : null,
         });
       }
 
@@ -592,6 +696,14 @@ export function createApp() {
       if (req.method === "GET" && pathname === "/api/auth/me") {
         return json(res, 200, { user: publicUser(currentUser(req)) });
       }
+
+      if (req.method === "POST" && pathname === "/api/auth/forgot") return await handleForgotPassword(req, res);
+      if (req.method === "POST" && pathname === "/api/auth/reset") return await handleResetPassword(req, res);
+
+      if (req.method === "GET" && pathname === "/api/admin/merchants") return handleModerationList(req, res);
+      const moderation = pathname.match(/^\/api\/admin\/merchants\/([\w-]+)$/);
+      if (req.method === "PUT" && moderation) return await handleModerationDecision(req, res, moderation[1]);
+      if (req.method === "PUT" && pathname === "/api/merchant/visibility") return await handleVisibility(req, res);
 
       if (req.method === "POST" && pathname === "/api/billing/checkout") return await handleCheckout(req, res);
       if (req.method === "POST" && pathname === "/api/billing/portal") return await handlePortal(req, res);
@@ -682,7 +794,8 @@ export function createApp() {
 export function startHousekeeping() {
   const timer = setInterval(() => {
     const removed = sessions.prune();
-    if (removed) log.info("sessions expirées purgées", { removed });
+    const tokens = passwordResets.prune();
+    if (removed || tokens) log.info("purge", { sessions: removed, jetonsDeReinitialisation: tokens });
   }, 6 * 3_600_000);
   timer.unref();
   return timer;

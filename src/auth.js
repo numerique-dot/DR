@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { config } from "./config.js";
-import { sessions, users } from "./db.js";
+import { passwordResets, sessions, users } from "./db.js";
 
 const SESSION_COOKIE = "drdu_session";
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
@@ -25,6 +25,11 @@ function verifyPassword(password, stored) {
 const normalizeEmail = (email) => String(email ?? "").trim().toLowerCase();
 const EMAIL = /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i;
 
+/** Un compte est modérateur si son adresse figure dans ADMIN_EMAILS. */
+export function isAdmin(user) {
+  return Boolean(user) && config.adminEmails.includes(String(user.email).toLowerCase());
+}
+
 export function publicUser(user) {
   if (!user) return null;
   return {
@@ -33,17 +38,15 @@ export function publicUser(user) {
     name: user.name,
     tier: user.tier,
     role: user.role ?? "customer",
+    admin: isAdmin(user),
     locale: user.locale ?? "fr",
     subscriptionStatus: user.subscription_status ?? null,
     currentPeriodEnd: user.current_period_end ?? null,
   };
 }
 
-export function createUser({ email, password, name }) {
-  const normalized = normalizeEmail(email);
-  if (!EMAIL.test(normalized)) {
-    throw Object.assign(new Error("Adresse électronique invalide."), { status: 400 });
-  }
+/** Contrôle unique du mot de passe : même règle à l'inscription et au changement. */
+function checkPassword(password) {
   const secret = String(password ?? "");
   if (secret.length < 10) {
     throw Object.assign(new Error("Le mot de passe doit compter au moins 10 caractères."), { status: 400 });
@@ -51,6 +54,15 @@ export function createUser({ email, password, name }) {
   if (secret.length > 256) {
     throw Object.assign(new Error("Mot de passe trop long (256 caractères maximum)."), { status: 400 });
   }
+  return secret;
+}
+
+export function createUser({ email, password, name }) {
+  const normalized = normalizeEmail(email);
+  if (!EMAIL.test(normalized)) {
+    throw Object.assign(new Error("Adresse électronique invalide."), { status: 400 });
+  }
+  const secret = checkPassword(password);
   if (users.byEmail(normalized)) {
     throw Object.assign(new Error("Un compte existe déjà pour cette adresse."), { status: 409 });
   }
@@ -99,4 +111,32 @@ export function sessionCookie(token, { clear = false } = {}) {
   if (config.isProduction) attributes.push("Secure");
   if (clear) return `${SESSION_COOKIE}=; ${attributes.join("; ")}; Max-Age=0`;
   return `${SESSION_COOKIE}=${token}; ${attributes.join("; ")}; Max-Age=${config.limits.sessionDays * 86_400}`;
+}
+
+/* ---------- Réinitialisation de mot de passe ---------- */
+
+/**
+ * Ouvre une demande. Renvoie null si l'adresse est inconnue : l'appelant
+ * répond la même chose dans tous les cas, pour ne pas révéler qui a un compte.
+ */
+export function openPasswordReset(email) {
+  const user = users.byEmail(normalizeEmail(email));
+  if (!user) return null;
+  const token = passwordResets.create(user.id, config.limits.resetMinutes);
+  return { user, token };
+}
+
+/**
+ * Consomme le jeton et remplace le mot de passe. Toutes les sessions ouvertes
+ * sont fermées : si quelqu'un d'autre était connecté, il ne l'est plus.
+ */
+export function completePasswordReset(token, password) {
+  const secret = checkPassword(password);
+  const user = passwordResets.claim(token);
+  if (!user) {
+    throw Object.assign(new Error("Lien invalide ou expiré. Demandez-en un nouveau."), { status: 400 });
+  }
+  users.setPassword(user.id, hashPassword(secret));
+  sessions.destroyAllFor(user.id);
+  return users.byId(user.id);
 }

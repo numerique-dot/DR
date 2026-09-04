@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>D.R DU — traduction de documents</title>
-<meta name="description" content="Traduisez un document, un courrier ou un devis en chinois, en anglais ou en français." />
+<title>D.R DU — modération des établissements</title>
+<meta name="description" content="File de validation des fiches déposées par les professionnels." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000091'/%3E%3Cpath d='M9 7h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm2 6v3h3v-3h-3zm5 0v3h3v-3h-3zm-5 5v3h3v-3h-3zm5 0v3h3v-3h-3z' fill='%23ffffff'/%3E%3C/svg%3E" />
 <meta name="theme-color" content="#000091" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#10101a" media="(prefers-color-scheme: dark)" />
-<meta property="og:title" content="D.R DU — traduction de documents" />
-<meta property="og:description" content="Traduisez un document, un courrier ou un devis en chinois, en anglais ou en français." />
+<meta property="og:title" content="D.R DU — modération des établissements" />
+<meta property="og:description" content="File de validation des fiches déposées par les professionnels." />
 <meta property="og:locale" content="fr_FR" />
 <link rel="manifest" href="/site.webmanifest" />
 <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
@@ -30,7 +30,7 @@
       <a href="/reserver" data-i18n="nav.catalogue">Réserver</a>
       <a href="/reserver#mes-reservations" data-i18n="nav.bookings">Mes réservations</a>
       <a href="/pro" data-i18n="nav.pro">Espace professionnel</a>
-      <a href="/traduction" aria-current="page" data-i18n="nav.translation">Traduction</a>
+      <a href="/traduction" data-i18n="nav.translation">Traduction</a>
     </nav>
     <div class="topbar-end">
       <label class="locale-switch">
@@ -48,125 +48,36 @@
     </div>
   </div>
 </header>
-<script src="/studio.js" type="module"></script>
+<script src="/moderation.js" type="module"></script>
 
-<main id="contenu">
-  <section class="section">
-    <div class="wrap">
+<main id="contenu" class="app">
+  <div class="wrap">
+    <div id="mod-gate" class="gate" hidden>
+      <h1>Espace de modération</h1>
+      <p class="lede">Cette page est réservée aux comptes de modération.</p>
+      <p><button class="btn btn-primary" type="button" data-auth="login">Se connecter</button></p>
+    </div>
+
+    <div id="mod-console" hidden>
       <header class="section-head">
-        <p class="eyebrow">Outil</p>
-        <h1>Traduction de documents</h1>
-        <p>Un devis, un contrat, un courrier administratif : déposez le fichier et
-        lisez-le dans votre langue. <span id="ai-mode" class="badge">…</span></p>
-      </header>
-    </div>
-  </section>
-
-  <section id="studio" class="section section-alt">
-    <div class="wrap">
-      <header class="section-head reveal">
-        <p class="eyebrow">Traduction assistée par IA</p>
-        <h2>Studio de traduction</h2>
-        <p>
-          Déposez un document, choisissez la langue cible et votre formule.
-          <span id="ai-mode" class="badge">…</span>
-        </p>
+        <p class="eyebrow">Modération</p>
+        <h1>Fiches déposées</h1>
+        <p>Une fiche refusée doit l'être avec un motif : le professionnel doit savoir quoi corriger.</p>
       </header>
 
-      <div class="studio">
-        <form id="translate-form" class="studio-panel">
-          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-describedby="drop-help">
-            <input id="file-input" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md" hidden />
-            <strong>Déposer un fichier</strong>
-            <span id="drop-help">PDF, photo de l'ordonnance ou fichier texte — 9 Mo maximum</span>
-            <span id="file-name" class="file-name" aria-live="polite"></span>
-          </div>
-
-          <fieldset class="field">
-            <legend>Langue cible</legend>
-            <div class="segmented" role="radiogroup" aria-label="Langue cible">
-              <label><input type="radio" name="target" value="zh" checked /><span>中文</span></label>
-              <label><input type="radio" name="target" value="en" /><span>English</span></label>
-              <label><input type="radio" name="target" value="fr" /><span>Français</span></label>
-            </div>
-          </fieldset>
-
-          <fieldset class="field">
-            <legend>Formule</legend>
-            <div class="tiers" role="radiogroup" aria-label="Formule">
-              <label class="tier">
-                <input type="radio" name="tier" value="free" checked />
-                <span class="tier-body">
-                  <strong>Essentiel · gratuit</strong>
-                  <em>Traduction fidèle du document, sans commentaire ni point de vigilance.</em>
-                </span>
-              </label>
-              <label class="tier">
-                <input type="radio" name="tier" value="member" disabled />
-                <span class="tier-body">
-                  <strong>Membre · 9 €/mois</strong>
-                  <em>Traduction + 注意事项 : montants, échéances, engagements, conditions de résiliation, pièces à fournir.</em>
-                  <em id="tier-hint" class="tier-hint">Réservé aux comptes membres — <button type="button" class="link" data-auth="subscribe">souscrire</button>.</em>
-                </span>
-              </label>
-            </div>
-          </fieldset>
-
-          <div id="save-field" class="save-field" hidden>
-            <label class="checkbox">
-              <input type="checkbox" id="save-history" />
-              <span>Conserver cette traduction dans mon historique <em>(sinon rien n'est enregistré)</em></span>
-            </label>
-          </div>
-
-          <button id="submit-btn" class="btn btn-primary btn-block" type="submit">Traduire le document</button>
-          <p class="disclaimer">
-            Traduction assistée par IA à visée d'information. Elle ne remplace pas l'avis
-            de votre médecin ou de votre pharmacien, et en cas de divergence seul le document
-            d'origine fait foi. Votre fichier n'est jamais écrit sur disque : il est traité
-            en mémoire, traduit, puis abandonné.
-          </p>
-        </form>
-
-        <div class="studio-result">
-          <div id="result-empty" class="result-empty">
-            <p>Le résultat apparaîtra ici : la traduction d'abord, puis les rubriques de la notice pour les membres.</p>
-          </div>
-
-          <article id="result" class="result" hidden>
-            <header class="result-head">
-              <div>
-                <h3 id="result-title">Traduction</h3>
-                <p id="result-meta" class="result-meta"></p>
-              </div>
-              <button id="copy-btn" class="btn btn-ghost btn-sm" type="button">Copier la traduction</button>
-            </header>
-
-            <div class="tabs" role="tablist" id="tabs"></div>
-            <div id="panels" class="panels"></div>
-          </article>
-
-          <div id="error" class="alert" role="alert" hidden></div>
-          <div id="loading" class="loading" hidden><span class="spinner" aria-hidden="true"></span> Analyse du document…</div>
-        </div>
+      <div class="app-tabs" role="tablist" aria-label="Filtres">
+        <button class="app-tab" type="button" role="tab" data-filter="pending" aria-selected="true">
+          En attente <span id="count-pending" class="unread" hidden></span>
+        </button>
+        <button class="app-tab" type="button" role="tab" data-filter="active" aria-selected="false">Publiées</button>
+        <button class="app-tab" type="button" role="tab" data-filter="paused" aria-selected="false">En pause</button>
+        <button class="app-tab" type="button" role="tab" data-filter="rejected" aria-selected="false">Refusées</button>
+        <button class="app-tab" type="button" role="tab" data-filter="" aria-selected="false">Toutes</button>
       </div>
-    </div>
-  </section>
 
-  <section id="historique" class="section" hidden>
-    <div class="wrap">
-      <header class="section-head reveal">
-        <h2>Mes documents traduits</h2>
-        <p>Les 50 derniers documents que vous avez choisi de conserver, notice comprise.
-        Supprimables à tout moment. Seules les traductions cochées à l'envoi apparaissent ici.</p>
-      </header>
-      <div class="history">
-        <ul id="history-list" class="history-list" aria-live="polite"></ul>
-        <div id="history-detail" class="history-detail"></div>
-      </div>
+      <div id="mod-list" class="booking-list" aria-live="polite"></div>
     </div>
-  </section>
-
+  </div>
 </main>
 
 <footer class="footer">

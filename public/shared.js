@@ -143,6 +143,7 @@ export function renderAccount() {
     return;
   }
   box.innerHTML = `<span class="who">${escapeHtml(state.user.name)}${isMember() ? " · Membre" : ""}</span>
+    ${state.user.admin ? '<a class="btn btn-ghost btn-sm" href="/moderation">Modération</a>' : ""}
     <button class="btn btn-ghost btn-sm" type="button" data-auth="logout">${escapeHtml(t("account.logout"))}</button>`;
 }
 
@@ -152,6 +153,7 @@ document.addEventListener("click", (event) => {
   if (action === "logout") return void logout();
   if (action === "subscribe") return void subscribe();
   if (action === "manage") return void manageSubscription();
+  if (action === "forgot") return void openForgot();
   openAuth(action);
 });
 
@@ -178,7 +180,8 @@ export function openAuth(mode, intent = null) {
   $("#auth-switch").innerHTML =
     mode === "signup"
       ? 'Déjà inscrit ? <button type="button" class="link" data-auth="login">Se connecter</button>'
-      : 'Pas encore de compte ? <button type="button" class="link" data-auth="signup">Créer un compte</button>';
+      : `Pas encore de compte ? <button type="button" class="link" data-auth="signup">Créer un compte</button>
+         <br /><button type="button" class="link" data-auth="forgot">Mot de passe oublié ?</button>`;
   if (dialog.open) dialog.close();
   dialog.showModal();
 }
@@ -318,3 +321,45 @@ if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
   );
   document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
 }
+
+/* ---------- Mot de passe oublié ---------- */
+
+/**
+ * La réponse du serveur est volontairement la même que l'adresse existe ou non :
+ * l'interface ne doit donc pas laisser deviner le contraire.
+ */
+function openForgot() {
+  const dialog = $("#forgot");
+  if (!dialog) return;
+  $("#forgot-form").reset();
+  $("#forgot-error").hidden = true;
+  $("#forgot-done").hidden = true;
+  $("#forgot-fields").hidden = false;
+  if ($("#auth")?.open) $("#auth").close();
+  dialog.showModal();
+}
+
+$("#forgot-form")?.addEventListener("submit", async (event) => {
+  if (event.submitter?.value === "cancel") return;
+  event.preventDefault();
+  const button = $("#forgot-submit");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/auth/forgot", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: event.target.elements.email.value }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Demande impossible.");
+    $("#forgot-fields").hidden = true;
+    $("#forgot-done").textContent = data.message;
+    $("#forgot-done").hidden = false;
+  } catch (error) {
+    const box = $("#forgot-error");
+    box.textContent = error.message;
+    box.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+});

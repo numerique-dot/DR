@@ -59,11 +59,23 @@ export const config = {
     merchantAutoApprove: bool(env.MERCHANT_AUTO_APPROVE, true),
   },
 
+  /**
+   * Comptes autorisés à modérer les établissements. Le rôle n'est pas stocké en
+   * base : il découle de cette liste, ce qui évite qu'une écriture malencontreuse
+   * promeuve quelqu'un, et permet de retirer un modérateur en redémarrant.
+   */
+  adminEmails: String(env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
+
   limits: {
     /** 12 Mo de corps JSON, soit environ 9 Mo de fichier après base64. */
     bodyBytes: Number(env.MAX_BODY_BYTES ?? 12 * 1024 * 1024),
     sessionDays: Number(env.SESSION_DAYS ?? 30),
     historyPerUser: Number(env.HISTORY_PER_USER ?? 50),
+    /** Durée de validité d'un lien de réinitialisation de mot de passe. */
+    resetMinutes: Number(env.PASSWORD_RESET_MINUTES ?? 60),
   },
 
   /** Fenêtres de limitation de débit, par adresse IP. */
@@ -72,6 +84,8 @@ export const config = {
     translate: { windowMs: 60 * 60_000, max: 400 },
     message: { windowMs: 60 * 60_000, max: 120 },
     booking: { windowMs: 60 * 60_000, max: 20 },
+    /** Demandes de réinitialisation : rare par nature, strict par prudence. */
+    reset: { windowMs: 60 * 60_000, max: 5 },
     global: { windowMs: 60_000, max: 300 },
   },
 
@@ -103,6 +117,11 @@ export function assertProductionReady() {
     if (!config.billing.webhookSecret) fatal.push("STRIPE_WEBHOOK_SECRET manquant.");
   }
   if (config.mail.transport === "log") warn.push("MAIL_TRANSPORT=log : aucun courriel ne partira réellement.");
+  if (!config.features.merchantAutoApprove && !config.adminEmails.length) {
+    fatal.push(
+      "MERCHANT_AUTO_APPROVE=false sans ADMIN_EMAILS : aucune fiche ne pourrait jamais être publiée.",
+    );
+  }
   if (config.features.history) {
     warn.push(
       "HISTORY_ENABLED=true : les traductions de documents sont conservées. " +

@@ -136,3 +136,71 @@ ${
 ${config.service.name}`,
   });
 }
+
+/* ---------- Modération et mot de passe ---------- */
+
+export function merchantApproved(merchant, owner) {
+  return send({
+    to: owner.email,
+    subject: `${merchant.name} est publié au catalogue`,
+    text: `Bonjour ${owner.name},
+
+Votre établissement « ${merchant.name} » est validé et visible au catalogue.
+Les clients peuvent désormais réserver les créneaux que vous ouvrez.
+
+Votre espace : ${config.publicUrl}/pro
+
+${config.service.name}`,
+  });
+}
+
+export function merchantRejected(merchant, owner, reason) {
+  return send({
+    to: owner.email,
+    subject: `${merchant.name} : votre inscription n'a pas été retenue`,
+    text: `Bonjour ${owner.name},
+
+Votre demande d'inscription pour « ${merchant.name} » n'a pas été retenue.
+
+${reason ? `Motif indiqué par la modération :\n${reason}` : "Aucun motif n'a été précisé."}
+
+Vous pouvez corriger votre fiche depuis ${config.publicUrl}/pro et nous écrire à
+${config.service.email} si vous pensez qu'il s'agit d'une erreur.
+
+${config.service.name}`,
+  });
+}
+
+export function passwordResetRequested(user, token) {
+  const link = `${config.publicUrl}/reinitialiser?jeton=${encodeURIComponent(token)}`;
+  return send({
+    to: user.email,
+    subject: "Réinitialiser votre mot de passe",
+    text: `Bonjour ${user.name},
+
+Vous avez demandé à réinitialiser votre mot de passe. Ce lien est valable
+${config.limits.resetMinutes} minutes et ne fonctionne qu'une fois :
+
+${link}
+
+Si vous n'êtes pas à l'origine de cette demande, ignorez ce message : votre mot
+de passe reste inchangé. Personne d'autre ne peut ouvrir ce lien sans y accéder.
+
+${config.service.name}`,
+  });
+}
+
+export function passwordChanged(user) {
+  return send({
+    to: user.email,
+    subject: "Votre mot de passe a été modifié",
+    text: `Bonjour ${user.name},
+
+Votre mot de passe vient d'être modifié et toutes vos sessions ont été fermées.
+
+Si vous n'êtes pas à l'origine de ce changement, écrivez immédiatement à
+${config.service.email}.
+
+${config.service.name}`,
+  });
+}

@@ -715,3 +715,11 @@ a:visited { color: var(--purple); }
   border: 1px solid var(--line); border-radius: var(--r-sm);
   background: var(--paper); color: var(--ink-soft); font-size: .78rem;
 }
+
+/* Bandeaux d'état et zone de modération */
+.banner { margin: 1rem 0 0; padding: .9rem 1.1rem; border-left: 4px solid var(--info); border-radius: var(--r-sm); background: var(--blue-wash); }
+.banner p { margin: 0; font-size: .92rem; }
+.banner-note { margin-top: .4rem !important; }
+.banner-warn { border-left-color: var(--red); background: var(--red-wash); }
+.mod-note { display: grid; gap: .3rem; }
+.mod-note textarea { width: 100%; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); font: inherit; resize: vertical; }

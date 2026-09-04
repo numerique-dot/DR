@@ -105,6 +105,10 @@
         <p class="eyebrow" data-i18n="pro.title">Espace professionnel</p>
         <h1 id="pro-name"></h1>
         <p id="pro-status" class="result-meta"></p>
+        <div id="pro-banner" class="banner" hidden></div>
+        <p id="pro-visibility" hidden>
+          <button class="btn btn-ghost btn-sm" type="button" id="visibility-toggle"></button>
+        </p>
       </header>
 
       <div class="app-tabs" role="tablist" aria-label="Sections">
@@ -210,6 +214,22 @@
     </p>
   </div>
 </footer>
+
+<dialog id="forgot" class="booking">
+  <form id="forgot-form" method="dialog">
+    <h2>Mot de passe oublié</h2>
+    <div id="forgot-fields">
+      <p class="booking-doctor">Indiquez l'adresse de votre compte : un lien de réinitialisation vous sera envoyé.</p>
+      <label>Courriel<input name="email" type="email" required autocomplete="email" /></label>
+    </div>
+    <p id="forgot-done" class="lede" hidden></p>
+    <div id="forgot-error" class="alert" role="alert" hidden></div>
+    <div class="booking-actions">
+      <button class="btn btn-ghost" value="cancel" formnovalidate>Fermer</button>
+      <button class="btn btn-primary" id="forgot-submit" value="confirm">Envoyer le lien</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="auth" class="booking">
   <form id="auth-form" method="dialog">

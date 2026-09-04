@@ -30,11 +30,64 @@ async function loadConsole() {
     data.merchant.status === "active" ? t("pro.status.published") : t("pro.status.pending")
   }`;
 
+  renderStatus(data.merchant);
   renderServices();
   renderSlots();
   fillServiceSelect();
   fillEditForm(data.merchant);
   await loadBookings();
+}
+
+/* ---------- Statut de la fiche ---------- */
+
+const STATUS_TEXT = {
+  pending: {
+    tone: "info",
+    message:
+      "Votre fiche est en attente de validation : elle n'apparaît pas encore au catalogue. Vous pouvez déjà préparer vos prestations et vos créneaux.",
+  },
+  rejected: {
+    tone: "warn",
+    message: "Votre fiche a été refusée. Corrigez-la depuis « Mon établissement » : elle repassera automatiquement en validation.",
+  },
+  paused: {
+    tone: "info",
+    message: "Votre fiche est en pause : elle n'apparaît pas au catalogue et personne ne peut réserver.",
+  },
+};
+
+function renderStatus(merchant) {
+  const banner = $("#pro-banner");
+  const info = STATUS_TEXT[merchant.status];
+  banner.hidden = !info;
+  if (info) {
+    banner.className = `banner banner-${info.tone}`;
+    banner.innerHTML = `<p>${escapeHtml(info.message)}</p>${
+      merchant.moderationNote
+        ? `<p class="banner-note"><strong>Motif :</strong> ${escapeHtml(merchant.moderationNote)}</p>`
+        : ""
+    }`;
+  }
+
+  // La mise en pause n'a de sens qu'une fois la fiche validée.
+  const zone = $("#pro-visibility");
+  const toggle = $("#visibility-toggle");
+  const switchable = ["active", "paused"].includes(merchant.status);
+  zone.hidden = !switchable;
+  if (switchable) {
+    toggle.textContent = merchant.status === "active" ? "Mettre ma fiche en pause" : "Remettre ma fiche en ligne";
+    toggle.onclick = async () => {
+      const response = await fetch("/api/merchant/visibility", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ visible: merchant.status !== "active" }),
+      });
+      const data = await response.json();
+      if (!response.ok) return notify(data.error ?? "Changement impossible.");
+      notify(data.merchant.status === "active" ? "Fiche de nouveau visible." : "Fiche mise en pause.");
+      await loadConsole();
+    };
+  }
 }
 
 /* ---------- Prestations ---------- */
