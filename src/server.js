@@ -8,7 +8,7 @@ const server = createApp();
 startHousekeeping();
 
 server.listen(config.port, config.host, () => {
-  log.info("D.R DU en écoute", {
+  log.info("D.R. RDV en écoute", {
     url: config.publicUrl,
     env: config.env,
     ia: config.ai.configured ? "API Claude" : "démonstration",

@@ -7,22 +7,55 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { log } from "./logger.js";
-import { DOCTORS } from "./doctors.js";
-import { appointments, history, migrate, sessions, users } from "./db.js";
+import {
+  CATEGORIES,
+  bookingMessages,
+  bookings,
+  history,
+  merchants,
+  migrate,
+  passwordResets,
+  publicMerchant,
+  services,
+  sessions,
+  slots,
+  translations,
+  users,
+} from "./db.js";
 import {
   authenticate,
+  completePasswordReset,
   createUser,
   currentUser,
   endSession,
+  isAdmin,
+  openPasswordReset,
   publicUser,
   sessionCookie,
   sessionToken,
   startSession,
 } from "./auth.js";
 import { applyEvent, portalUrl, startCheckout, verifySignature } from "./billing.js";
-import { appointmentConfirmation, welcome } from "./mailer.js";
+import {
+  bookingCancelled,
+  bookingConfirmation,
+  merchantApproved,
+  merchantRejected,
+  passwordChanged,
+  passwordResetRequested,
+  welcome,
+} from "./mailer.js";
 import { LANGUAGES, translateDocument } from "./ai.js";
-import { clientIp, rateLimit, sameOrigin, securityHeaders, startRateLimitCleanup } from "./security.js";
+import { translateShortText } from "./ai-text.js";
+import { LOCALES, dictionary, normalizeLocale } from "./i18n.js";
+import {
+  clientIp,
+  forgetRateLimit,
+  rateLimit,
+  sameOrigin,
+  securityHeaders,
+  startRateLimitCleanup,
+} from "./security.js";
 
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
 
@@ -165,16 +198,6 @@ async function notFound(req, res) {
   return res.end("Page introuvable");
 }
 
-/* ---------- Praticiens ---------- */
-
-function doctorsWithAvailability() {
-  const taken = new Set(appointments.allBooked().map((row) => `${row.doctor_id}|${row.slot}`));
-  return DOCTORS.map((doctor) => ({
-    ...doctor,
-    slots: doctor.slots.filter((slot) => !taken.has(`${doctor.id}|${slot}`)),
-  }));
-}
-
 /* ---------- Gardes ---------- */
 
 function requireUser(req) {
@@ -187,6 +210,16 @@ function requireMember(req) {
   const user = requireUser(req);
   if (user.tier !== "member") throw Object.assign(new Error("Formule Membre requise."), { status: 403 });
   return user;
+}
+
+/** L'historique n'existe que si la conservation des documents est activée. */
+function requireHistory(req) {
+  if (!config.features.history) {
+    throw Object.assign(new Error("La conservation des documents est désactivée sur ce service."), {
+      status: 404,
+    });
+  }
+  return requireMember(req);
 }
 
 function guard(name, req) {
@@ -217,6 +250,8 @@ async function handleLogin(req, res) {
   const user = authenticate(body);
   // Rotation : une session neuve à chaque connexion réussie.
   const token = startSession(user.id);
+  // Le quota ne doit pénaliser que les échecs.
+  forgetRateLimit("auth", req);
   return json(res, 200, { user: publicUser(user) }, { "set-cookie": sessionCookie(token) });
 }
 
@@ -226,7 +261,7 @@ function handleLogout(req, res) {
 }
 
 async function handleTranslate(req, res) {
-  guard("translate", req);
+  guard("document", req);
   const body = await readBody(req);
   const user = currentUser(req);
   // Le palier vient de la session, jamais du client.
@@ -250,41 +285,9 @@ async function handleTranslate(req, res) {
   const result = await translateDocument({ tier, target, fileName, mediaType, dataBase64: body.dataBase64, text });
   log.info("document traduit", { tier, target, ms: Date.now() - started, mode: result.mode });
 
-  const saved = tier === "member" && body.save !== false ? history.save(user.id, result) : null;
+  const keep = config.features.history && tier === "member" && body.save === true;
+  const saved = keep ? history.save(user.id, result) : null;
   return json(res, 200, { ...result, historyId: saved?.id ?? null });
-}
-
-async function handleAppointment(req, res) {
-  guard("booking", req);
-  const body = await readBody(req);
-  const user = currentUser(req);
-  const doctor = DOCTORS.find((d) => d.id === body.doctorId);
-  const missing = ["patientName", "email", "slot"].filter((field) => !String(body[field] ?? "").trim());
-  if (!doctor) return json(res, 400, { error: "Praticien inconnu." });
-  if (missing.length) return json(res, 400, { error: `Champs manquants : ${missing.join(", ")}.` });
-  if (!doctor.slots.includes(body.slot)) return json(res, 409, { error: "Créneau plus disponible." });
-
-  const appointment = appointments.create({
-    userId: user?.id ?? null,
-    doctorId: doctor.id,
-    doctorName: doctor.name,
-    speciality: doctor.speciality,
-    slot: body.slot,
-    patientName: String(body.patientName).slice(0, 120),
-    email: String(body.email).slice(0, 160),
-    phone: String(body.phone ?? "").slice(0, 40),
-    reason: String(body.reason ?? "").slice(0, 1000),
-    tier: user?.tier === "member" ? "member" : "free",
-  });
-  await appointmentConfirmation(appointment);
-  log.info("rendez-vous créé", { reference: appointment.reference, doctorId: doctor.id });
-  return json(res, 201, {
-    id: appointment.id,
-    reference: appointment.reference,
-    doctorName: appointment.doctor_name,
-    slot: appointment.slot,
-    email: appointment.email,
-  });
 }
 
 async function handleCheckout(req, res) {
@@ -310,6 +313,344 @@ async function handleBillingWebhook(req, res) {
   const event = JSON.parse(raw);
   const outcome = await applyEvent(event);
   return json(res, 200, { received: true, ...outcome });
+}
+
+
+/* ---------- Gardes de la plateforme ---------- */
+
+/** Établissement rattaché au compte, ou 403 si le compte n'en a pas. */
+function requireMerchant(req) {
+  const user = requireUser(req);
+  const merchant = merchants.byOwner(user.id);
+  if (!merchant) {
+    throw Object.assign(new Error("Aucun établissement rattaché à ce compte."), { status: 403 });
+  }
+  return { user, merchant };
+}
+
+/** Langue de lecture : celle demandée, sinon celle du compte, sinon le français. */
+function readerLocale(req, user) {
+  const asked = new URL(req.url, config.publicUrl).searchParams.get("lang");
+  if (Object.hasOwn(LOCALES, asked)) return asked;
+  return normalizeLocale(user?.locale);
+}
+
+/**
+ * Traduit un texte court en le mettant en cache : une consigne ou un message
+ * déjà traduit dans une langue n'est jamais repayé.
+ */
+async function cachedTranslation(kind, subjectId, text, target) {
+  if (!text?.trim()) return null;
+  const cached = translations.get(kind, subjectId, target);
+  if (cached) return cached;
+  const result = await translateShortText({ text, target });
+  return translations.put(kind, subjectId, target, result);
+}
+
+/**
+ * Traduction d'un élément parmi d'autres : l'échec (refus du modèle, panne,
+ * quota atteint) est journalisé et rend null, jamais propagé — l'original
+ * suffit à ne pas bloquer le lecteur.
+ */
+async function tolerantTranslation(kind, subjectId, text, target, req) {
+  const cached = translations.get(kind, subjectId, target);
+  if (cached) return cached.translation ?? null;
+  try {
+    guard("translate", req);
+    return (await cachedTranslation(kind, subjectId, text, target))?.translation ?? null;
+  } catch (error) {
+    log.warn("traduction indisponible pour un élément", { kind, subjectId, error: error.message });
+    return null;
+  }
+}
+
+/* ---------- Catalogue public ---------- */
+
+function handleCatalog(req, res) {
+  const url = new URL(req.url, config.publicUrl);
+  const catalog = merchants.catalog({
+    city: url.searchParams.get("ville") ?? undefined,
+    category: url.searchParams.get("categorie") ?? undefined,
+  });
+  return json(res, 200, { categories: CATEGORIES, cities: merchants.cities(), merchants: catalog });
+}
+
+function handleMerchantDetail(req, res, merchantId) {
+  const merchant = merchants.byId(merchantId);
+  if (!merchant || merchant.status !== "active") return json(res, 404, { error: "Établissement introuvable." });
+  const url = new URL(req.url, config.publicUrl);
+  const serviceId = url.searchParams.get("prestation");
+  return json(res, 200, {
+    merchant: publicMerchant(merchant),
+    services: services.forMerchant(merchant.id, { onlyActive: true }),
+    slots: slots.available(merchant.id, { serviceId: serviceId || null }),
+  });
+}
+
+/* ---------- Inscription des commerçants ---------- */
+
+async function handleMerchantCreate(req, res) {
+  const user = requireUser(req);
+  const body = await readBody(req);
+  const merchant = merchants.create(user.id, {
+    ...merchants.validate(body),
+    // En l'absence de modération humaine, l'inscription est immédiate ou en
+    // attente selon la configuration de la plateforme.
+    status: config.features.merchantAutoApprove ? "active" : "pending",
+  });
+  log.info("établissement créé", { merchantId: merchant.id, status: merchant.status });
+  return json(res, 201, { merchant });
+}
+
+async function handleMerchantUpdate(req, res) {
+  const { merchant } = requireMerchant(req);
+  const body = await readBody(req);
+  let updated = merchants.update(merchant.id, merchants.validate(body));
+  // Une fiche refusée puis corrigée repart en validation ; sinon on ne touche
+  // pas au statut (une fiche en pause le reste tant que le commerçant le veut).
+  if (merchant.status === "rejected") {
+    updated = merchants.setStatus(merchant.id, config.features.merchantAutoApprove ? "active" : "pending", "");
+  }
+  return json(res, 200, { merchant: updated });
+}
+
+/* ---------- Prestations ---------- */
+
+async function handleServiceCreate(req, res) {
+  const { merchant } = requireMerchant(req);
+  const body = await readBody(req);
+  return json(res, 201, { service: services.create(merchant.id, services.validate(body)) });
+}
+
+async function handleServiceUpdate(req, res, serviceId) {
+  const { merchant } = requireMerchant(req);
+  const service = services.byId(serviceId);
+  if (!service || service.merchantId !== merchant.id) return json(res, 404, { error: "Prestation introuvable." });
+  const body = await readBody(req);
+  return json(res, 200, { service: services.update(serviceId, services.validate(body)) });
+}
+
+function handleServiceDelete(req, res, serviceId) {
+  const { merchant } = requireMerchant(req);
+  const service = services.byId(serviceId);
+  if (!service || service.merchantId !== merchant.id) return json(res, 404, { error: "Prestation introuvable." });
+  // Refuse avec 409 si des réservations en cours dépendent de la prestation.
+  services.remove(merchant.id, serviceId);
+  return json(res, 200, { ok: true });
+}
+
+/* ---------- Créneaux ---------- */
+
+async function handleSlotsOpen(req, res) {
+  const { merchant } = requireMerchant(req);
+  const body = await readBody(req);
+  const list = Array.isArray(body.startsAt) ? body.startsAt : [];
+  const valid = list
+    .map((value) => new Date(value))
+    .filter((date) => !Number.isNaN(date.getTime()) && date.getTime() > Date.now())
+    .slice(0, 200)
+    .map((date) => date.toISOString());
+  if (!valid.length) return json(res, 400, { error: "Aucun créneau valide à venir." });
+  const serviceId = body.serviceId ? String(body.serviceId) : null;
+  if (serviceId) {
+    const service = services.byId(serviceId);
+    if (!service || service.merchantId !== merchant.id) return json(res, 400, { error: "Prestation inconnue." });
+  }
+  const created = slots.open(merchant.id, valid, serviceId);
+  return json(res, 201, { created, slots: slots.forMerchant(merchant.id) });
+}
+
+function handleSlotDelete(req, res, slotId) {
+  const { merchant } = requireMerchant(req);
+  if (!slots.remove(merchant.id, slotId)) return json(res, 404, { error: "Créneau introuvable." });
+  return json(res, 200, { ok: true });
+}
+
+/* ---------- Réservations ---------- */
+
+async function handleBookingCreate(req, res) {
+  const user = requireUser(req);
+  guard("booking", req);
+  const body = await readBody(req);
+  const booking = bookings.create({
+    slotId: String(body.slotId ?? ""),
+    serviceId: String(body.serviceId ?? ""),
+    customerId: user.id,
+    note: String(body.note ?? "").slice(0, 1000),
+    noteLang: normalizeLocale(body.noteLang ?? user.locale),
+  });
+  const detailed = bookings.detailed(booking.id, user.id);
+  await bookingConfirmation(detailed, user);
+  log.info("réservation créée", { reference: booking.reference, merchantId: booking.merchantId });
+  return json(res, 201, { booking: detailed });
+}
+
+function handleMyBookings(req, res) {
+  const user = requireUser(req);
+  return json(res, 200, { bookings: bookings.forCustomer(user.id) });
+}
+
+async function handleBookingCancel(req, res, bookingId) {
+  const user = requireUser(req);
+  const merchant = merchants.byOwner(user.id);
+  const cancelled = bookings.cancel(bookingId, { userId: user.id, merchantId: merchant?.id });
+  const detailed = bookings.detailed(cancelled.id, user.id);
+  // Un second appel sur une réservation déjà annulée ne renvoie pas de courriel.
+  if (cancelled.changed) {
+    await bookingCancelled(detailed);
+    log.info("réservation annulée", { reference: cancelled.reference, by: cancelled.cancelledBy });
+  }
+  return json(res, 200, { booking: detailed });
+}
+
+/**
+ * Réservations reçues par le commerçant. La consigne laissée par le client est
+ * traduite dans la langue du back-office : le commerçant lit du français même
+ * si le client a écrit en chinois.
+ */
+async function handleMerchantBookings(req, res) {
+  const { user, merchant } = requireMerchant(req);
+  const target = readerLocale(req, user);
+  const rows = bookings.forMerchant(merchant.id, user.id);
+  const out = [];
+  for (const booking of rows) {
+    let noteTranslation = null;
+    if (booking.note && booking.noteLang !== target) {
+      noteTranslation = await tolerantTranslation("note", booking.id, booking.note, target, req);
+    }
+    out.push({ ...booking, noteTranslation });
+  }
+  return json(res, 200, { bookings: out, target });
+}
+
+/* ---------- Messages d'une réservation ---------- */
+
+async function handleBookingMessages(req, res, bookingId) {
+  const user = requireUser(req);
+  const merchant = merchants.byOwner(user.id);
+  const access = bookings.access(bookingId, user, merchant);
+  if (!access) return json(res, 404, { error: "Réservation introuvable." });
+  const target = readerLocale(req, user);
+
+  const out = [];
+  for (const message of bookingMessages.list(bookingId)) {
+    const mine = message.senderId === user.id;
+    // L'original est toujours rendu ; la traduction, si elle échoue, manque
+    // pour ce seul message au lieu de faire tomber tout le fil.
+    const translation = mine ? null : await tolerantTranslation("message", message.id, message.body, target, req);
+    out.push({
+      id: message.id,
+      mine,
+      senderRole: message.senderRole,
+      body: message.body,
+      translation,
+      createdAt: message.createdAt,
+    });
+  }
+  bookingMessages.markRead(bookingId, user.id);
+  return json(res, 200, { messages: out, target, role: access.role });
+}
+
+async function handleBookingMessageSend(req, res, bookingId) {
+  const user = requireUser(req);
+  const merchant = merchants.byOwner(user.id);
+  const access = bookings.access(bookingId, user, merchant);
+  if (!access) return json(res, 404, { error: "Réservation introuvable." });
+  const body = await readBody(req);
+  const text = String(body.body ?? "").trim();
+  if (!text) return json(res, 400, { error: "Message vide." });
+  if (text.length > 2000) return json(res, 413, { error: "Message trop long (2000 caractères maximum)." });
+  guard("message", req);
+  const message = bookingMessages.create(bookingId, user.id, access.role, text);
+  return json(res, 201, { id: message.id, createdAt: message.created_at });
+}
+
+
+/* ---------- Modération des établissements ---------- */
+
+function requireAdmin(req) {
+  const user = requireUser(req);
+  if (!isAdmin(user)) throw Object.assign(new Error("Accès réservé à la modération."), { status: 403 });
+  return user;
+}
+
+function handleModerationList(req, res) {
+  requireAdmin(req);
+  const status = new URL(req.url, config.publicUrl).searchParams.get("statut");
+  return json(res, 200, {
+    merchants: merchants.forModeration(merchants.STATUSES.includes(status) ? status : null),
+    counts: merchants.counts(),
+    statuses: merchants.STATUSES,
+  });
+}
+
+/** Publication, refus ou suspension d'une fiche par la modération. */
+async function handleModerationDecision(req, res, merchantId) {
+  requireAdmin(req);
+  const body = await readBody(req);
+  const merchant = merchants.byId(merchantId);
+  if (!merchant) return json(res, 404, { error: "Établissement introuvable." });
+  const status = String(body.status ?? "");
+  if (!merchants.STATUSES.includes(status)) return json(res, 400, { error: "Statut inconnu." });
+  const note = String(body.note ?? "").slice(0, 1000);
+  if (status === "rejected" && !note.trim()) {
+    return json(res, 400, { error: "Un refus doit être motivé : le commerçant doit savoir quoi corriger." });
+  }
+
+  const updated = merchants.setStatus(merchantId, status, note);
+  const owner = users.byId(merchant.ownerId);
+  if (owner && merchant.status !== status) {
+    if (status === "active") await merchantApproved(updated, owner);
+    if (status === "rejected") await merchantRejected(updated, owner, note);
+  }
+  log.info("fiche modérée", { merchantId, from: merchant.status, to: status });
+  return json(res, 200, { merchant: updated });
+}
+
+/** Le commerçant met sa fiche en pause, ou la remet en ligne. */
+async function handleVisibility(req, res) {
+  const { merchant } = requireMerchant(req);
+  const body = await readBody(req);
+  const wanted = body.visible === false ? "paused" : "active";
+  if (!merchants.SELF_SERVICE.includes(merchant.status)) {
+    const reasons = {
+      pending: "Votre fiche attend encore la validation de la modération.",
+      rejected: "Votre fiche a été refusée : corrigez-la, elle repassera en validation.",
+      suspended: "Votre fiche a été suspendue par la modération : contactez-nous pour la rétablir.",
+    };
+    return json(res, 409, { error: reasons[merchant.status] ?? "Statut non modifiable." });
+  }
+  return json(res, 200, { merchant: merchants.setStatus(merchant.id, wanted, merchant.moderationNote) });
+}
+
+/* ---------- Réinitialisation de mot de passe ---------- */
+
+async function handleForgotPassword(req, res) {
+  guard("reset", req);
+  const body = await readBody(req);
+  const opened = openPasswordReset(body.email);
+  if (opened) {
+    // Sans attendre l'envoi : un temps de réponse différent trahirait l'existence du compte.
+    void passwordResetRequested(opened.user, opened.token);
+    log.info("demande de réinitialisation", { userId: opened.user.id });
+  } else {
+    log.info("demande de réinitialisation pour une adresse inconnue", { ip: clientIp(req) });
+  }
+  // Réponse identique dans tous les cas : l'existence d'un compte ne se déduit pas.
+  return json(res, 200, {
+    ok: true,
+    message: "Si un compte existe pour cette adresse, un lien vient d'être envoyé.",
+  });
+}
+
+async function handleResetPassword(req, res) {
+  guard("reset", req);
+  const body = await readBody(req);
+  const user = completePasswordReset(body.token, body.password);
+  await passwordChanged(user);
+  log.info("mot de passe réinitialisé", { userId: user.id });
+  // Sessions fermées : l'utilisateur se reconnecte avec son nouveau mot de passe.
+  return json(res, 200, { ok: true }, { "set-cookie": sessionCookie(null, { clear: true }) });
 }
 
 /* ---------- Serveur ---------- */
@@ -342,17 +683,26 @@ export function createApp() {
           version: process.env.APP_VERSION ?? "dev",
           ai: config.ai.configured ? "live" : "demo",
           billing: config.billing.provider,
+          retention: config.features.history ? "historique actif" : "sans rétention",
         });
       }
 
       if (req.method === "GET" && pathname === "/api/config") {
         const user = currentUser(req);
+        // Un visiteur sans compte peut demander une langue le temps de sa visite.
+        const locale = readerLocale(req, user);
         return json(res, 200, {
           aiMode: config.ai.configured ? "live" : "demo",
           billingMode: config.billing.provider,
           languages: LANGUAGES,
-          doctors: doctorsWithAvailability(),
+          historyEnabled: config.features.history,
           user: publicUser(user),
+          locale,
+          locales: LOCALES,
+          dictionary: dictionary(locale),
+          categories: CATEGORIES,
+          merchant: user ? merchants.byOwner(user.id) : null,
+          moderation: isAdmin(user) ? merchants.counts() : null,
         });
       }
 
@@ -363,23 +713,74 @@ export function createApp() {
         return json(res, 200, { user: publicUser(currentUser(req)) });
       }
 
+      if (req.method === "POST" && pathname === "/api/auth/forgot") return await handleForgotPassword(req, res);
+      if (req.method === "POST" && pathname === "/api/auth/reset") return await handleResetPassword(req, res);
+
+      if (req.method === "GET" && pathname === "/api/admin/merchants") return handleModerationList(req, res);
+      const moderation = pathname.match(/^\/api\/admin\/merchants\/([\w-]+)$/);
+      if (req.method === "PUT" && moderation) return await handleModerationDecision(req, res, moderation[1]);
+      if (req.method === "PUT" && pathname === "/api/merchant/visibility") return await handleVisibility(req, res);
+
       if (req.method === "POST" && pathname === "/api/billing/checkout") return await handleCheckout(req, res);
       if (req.method === "POST" && pathname === "/api/billing/portal") return await handlePortal(req, res);
 
       if (req.method === "GET" && pathname === "/api/history") {
-        return json(res, 200, history.forUser(requireMember(req).id));
+        return json(res, 200, history.forUser(requireHistory(req).id));
       }
       if (req.method === "DELETE" && pathname.startsWith("/api/history/")) {
-        const user = requireMember(req);
+        const user = requireHistory(req);
         const id = pathname.slice("/api/history/".length);
         if (!history.remove(user.id, id)) return json(res, 404, { error: "Document introuvable." });
         return json(res, 200, { ok: true });
       }
 
-      if (req.method === "GET" && pathname === "/api/appointments") {
-        return json(res, 200, appointments.forUser(requireUser(req).id));
+      // Catalogue et fiches, accessibles sans compte.
+      if (req.method === "GET" && pathname === "/api/catalog") return handleCatalog(req, res);
+      const merchantDetail = pathname.match(/^\/api\/merchants\/([\w-]+)$/);
+      if (req.method === "GET" && merchantDetail) return handleMerchantDetail(req, res, merchantDetail[1]);
+
+      // Espace professionnel.
+      if (req.method === "POST" && pathname === "/api/merchants") return await handleMerchantCreate(req, res);
+      if (req.method === "GET" && pathname === "/api/merchant/me") {
+        const { merchant } = requireMerchant(req);
+        return json(res, 200, {
+          merchant,
+          services: services.forMerchant(merchant.id),
+          slots: slots.forMerchant(merchant.id),
+        });
       }
-      if (req.method === "POST" && pathname === "/api/appointments") return await handleAppointment(req, res);
+      if (req.method === "PUT" && pathname === "/api/merchant/me") return await handleMerchantUpdate(req, res);
+      if (req.method === "GET" && pathname === "/api/merchant/bookings") return await handleMerchantBookings(req, res);
+      if (req.method === "POST" && pathname === "/api/merchant/services") return await handleServiceCreate(req, res);
+      const serviceRoute = pathname.match(/^\/api\/merchant\/services\/([\w-]+)$/);
+      if (serviceRoute) {
+        if (req.method === "PUT") return await handleServiceUpdate(req, res, serviceRoute[1]);
+        if (req.method === "DELETE") return handleServiceDelete(req, res, serviceRoute[1]);
+      }
+      if (req.method === "POST" && pathname === "/api/merchant/slots") return await handleSlotsOpen(req, res);
+      const slotRoute = pathname.match(/^\/api\/merchant\/slots\/([\w-]+)$/);
+      if (req.method === "DELETE" && slotRoute) return handleSlotDelete(req, res, slotRoute[1]);
+
+      // Réservations et messages.
+      if (req.method === "POST" && pathname === "/api/bookings") return await handleBookingCreate(req, res);
+      if (req.method === "GET" && pathname === "/api/bookings") return handleMyBookings(req, res);
+      const cancelRoute = pathname.match(/^\/api\/bookings\/([\w-]+)\/cancel$/);
+      if (req.method === "POST" && cancelRoute) return await handleBookingCancel(req, res, cancelRoute[1]);
+      const messageRoute = pathname.match(/^\/api\/bookings\/([\w-]+)\/messages$/);
+      if (messageRoute) {
+        if (req.method === "GET") return await handleBookingMessages(req, res, messageRoute[1]);
+        if (req.method === "POST") return await handleBookingMessageSend(req, res, messageRoute[1]);
+      }
+
+      // Langue de l'interface.
+      if (req.method === "PUT" && pathname === "/api/locale") {
+        const user = requireUser(req);
+        const body = await readBody(req);
+        const locale = normalizeLocale(body.locale);
+        users.setLocale(user.id, locale);
+        return json(res, 200, { locale, dictionary: dictionary(locale) });
+      }
+
       if (req.method === "POST" && pathname === "/api/translate") return await handleTranslate(req, res);
 
       if (pathname.startsWith("/api/")) return json(res, 404, { error: "Route inconnue." });
@@ -406,11 +807,15 @@ export function createApp() {
 }
 
 /** Nettoyage périodique des sessions expirées. */
+export function housekeep() {
+  const removed = sessions.prune();
+  const tokens = passwordResets.prune();
+  if (removed || tokens) log.info("purge", { sessions: removed, jetonsDeReinitialisation: tokens });
+  return { sessions: removed, tokens };
+}
+
 export function startHousekeeping() {
-  const timer = setInterval(() => {
-    const removed = sessions.prune();
-    if (removed) log.info("sessions expirées purgées", { removed });
-  }, 6 * 3_600_000);
+  const timer = setInterval(housekeep, 6 * 3_600_000);
   timer.unref();
   return timer;
 }

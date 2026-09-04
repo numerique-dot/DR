@@ -1,12 +1,12 @@
 {
-  "name": "D.R DU — clinique et documents de santé",
-  "short_name": "D.R DU",
-  "description": "Rendez-vous médical et traduction de documents de santé.",
+  "name": "D.R. RDV — réservation en ligne multilingue",
+  "short_name": "D.R. RDV",
+  "description": "Réservez un professionnel et échangez dans votre langue.",
   "lang": "fr",
-  "start_url": "/",
+  "start_url": "/reserver",
   "display": "standalone",
-  "background_color": "#f6f2e9",
-  "theme_color": "#0d3b3a",
+  "background_color": "#f5f5fa",
+  "theme_color": "#000091",
   "icons": [
     {
       "src": "/icone.svg",

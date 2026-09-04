@@ -1,42 +1,165 @@
-# D.R DU — rendez-vous médical & traduction de documents de santé
+# D.R. RDV — plateforme de réservation multilingue
 
-Site de la clinique **D.R DU** : prise de rendez-vous, et *studio de traduction* où le
-patient dépose une ordonnance, un compte rendu ou des résultats d'analyses (PDF, photo
-ou texte) et récupère une traduction en **中文**, **English** ou **Français**.
+Plateforme de mise en relation : les **professionnels s'inscrivent**, publient leurs
+prestations et leurs créneaux ; les **clients réservent** et échangent avec eux, chacun
+dans sa langue. Le chinois, le français et l'anglais sont traités à égalité.
 
-Node 22, aucune dépendance de build, une seule dépendance d'exécution (`@anthropic-ai/sdk`).
-Base SQLite intégrée à Node, polices auto-hébergées, image Docker fournie.
+D.R. RDV est un **intermédiaire** : les prestations sont fournies par les professionnels
+inscrits. Aucune commission n'est prélevée, aucun paiement de prestation n'est encaissé.
+
+Node 22, aucune étape de build, une seule dépendance d'exécution (`@anthropic-ai/sdk`).
+SQLite intégré à Node, police auto-hébergée, image Docker fournie.
+
+## Ce que fait la plateforme
+
+**Côté client** — parcourir le catalogue (filtres ville et métier), voir les prestations
+avec durée et prix, réserver un créneau libre, laisser une précision **dans sa langue**,
+échanger avec le professionnel, annuler à tout moment.
+
+**Côté professionnel** — inscrire son établissement, décrire ses prestations (durée, prix,
+activation), ouvrir des créneaux par plage horaire et par pas, suivre ses réservations,
+répondre aux clients. Le back-office existe en **français, chinois et anglais**.
+
+**La traduction, à trois endroits**
+
+| Où | Qui en bénéficie | Comment |
+|---|---|---|
+| Précision laissée à la réservation | le professionnel la lit dans sa langue | traduite à la demande, mise en cache |
+| Messages échangés | les deux, dans les deux sens | traduits par message, l'original reste consultable |
+| Interface du back-office | le professionnel | dictionnaire figé (`src/i18n.js`), sans appel au modèle |
+| Documents déposés (outil séparé) | le client | traduction gratuite ; formule Membre pour les points de vigilance |
+
+Deux principes tenus partout : **l'original reste consultable et fait foi**, et une phrase
+déjà traduite n'est **jamais repayée** (cache par sujet et par langue, invalidé à l'édition).
+
+## Formules
 
 | | Essentiel (gratuit) | Membre — 9 €/mois |
 |---|---|---|
-| Traduction fidèle et intégrale | ✓ | ✓ |
-| Commentaires, avertissements | **aucun** | — |
-| Points de vigilance **注意事项** (posologie, durée, interactions, contre-indications, valeurs hors normes, échéances) | — | ✓ |
-| Glossaire des termes techniques | — | ✓ |
-| Questions à poser au praticien | — | ✓ |
-| Plan de suivi daté | — | ✓ |
-| Historique des documents (50 par compte) | — | ✓ |
+| Réservation, agenda, messages traduits | ✓ | ✓ |
+| Commission sur les prestations | aucune | aucune |
+| Traduction de documents | le texte, fidèlement | ✓ |
+| Points de vigilance **注意事项** sur un document (montants, échéances, engagements, résiliation) | — | ✓ |
+| Glossaire, questions à poser, actions de suivi | — | ✓ |
 
-**La séparation est appliquée côté serveur.** Le palier est déduit de la session, jamais
-du corps de la requête : un visiteur anonyme qui envoie `{"tier":"member"}` à
-`/api/translate` reçoit la traduction seule. Le palier gratuit passe par un prompt système
-qui interdit tout ajout ; le palier membre passe par une sortie structurée
-(`output_config.format`) dont le schéma porte les rubriques de la notice. La notice n'est
-pas masquée dans l'interface, elle n'est pas générée.
+Le palier est déduit de la **session**, jamais du corps de la requête : un visiteur anonyme
+qui envoie `{"tier":"member"}` à `/api/translate` reçoit la traduction seule. La notice
+n'est pas masquée dans l'interface, elle n'est pas générée.
 
-Modèle : `claude-opus-5`, réflexion adaptative, repli serveur en cas de refus.
+Modèle : `claude-opus-5`, réflexion adaptative, repli serveur en cas de refus. Les textes
+courts passent en effort `low` : traduire un message ne demande pas la même dépense qu'un
+contrat de dix pages.
 
 ## Démarrage
 
 ```bash
 npm install
-npm test                  # 33 tests
+npm test                  # 90 tests
 npm start                 # http://localhost:3000
 ```
 
-Sans `ANTHROPIC_API_KEY`, le studio répond en **mode démonstration** (notice d'exemple en
-zh / en / fr) ; sans `STRIPE_SECRET_KEY`, l'abonnement est **simulé**. Les deux modes sont
-signalés dans l'interface, et **refusés au démarrage en production** (voir garde-fous).
+Sans `ANTHROPIC_API_KEY`, les traductions répondent en **mode démonstration** ; sans
+`STRIPE_SECRET_KEY`, l'abonnement est **simulé**. Les deux modes sont signalés dans
+l'interface et refusés au démarrage en production.
+
+## Pages
+
+| Route | Rôle |
+|---|---|
+| `/` | présentation, deux entrées (client / professionnel) |
+| `/reserver` | catalogue, réservation, « mes réservations », fils de discussion |
+| `/pro` | inscription et back-office : agenda, réservations, prestations, fiche |
+| `/traduction` | outil de traduction de documents |
+| `/moderation` | file de validation des fiches (comptes de `ADMIN_EMAILS`) |
+| `/reinitialiser` | choix d'un nouveau mot de passe depuis le lien reçu |
+| `/mentions-legales` `/confidentialite` `/cgu` `/accessibilite` | obligations légales |
+
+## API
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| `GET` | `/healthz` | sonde (état, version, modes) |
+| `GET` | `/api/config` | modes, langues, dictionnaire, catégories, utilisateur, établissement |
+| `POST` | `/api/auth/signup` · `/login` · `/logout` | comptes et session |
+| `POST` | `/api/auth/forgot` · `/reset` | réinitialisation du mot de passe |
+| `GET` · `PUT` | `/api/admin/merchants[/:id]` | file de validation et décisions |
+| `PUT` | `/api/merchant/visibility` | mise en pause ou remise en ligne de sa fiche |
+| `PUT` | `/api/locale` | langue de l'interface |
+| `GET` | `/api/catalog` | catalogue public (`?ville=`, `?categorie=`) |
+| `GET` | `/api/merchants/:id` | fiche, prestations et créneaux libres |
+| `POST` | `/api/merchants` | inscription d'un établissement |
+| `GET` · `PUT` | `/api/merchant/me` | back-office : fiche, prestations, créneaux |
+| `GET` | `/api/merchant/bookings` | réservations reçues, précisions traduites |
+| `POST` · `PUT` · `DELETE` | `/api/merchant/services[/:id]` | prestations |
+| `POST` · `DELETE` | `/api/merchant/slots[/:id]` | créneaux |
+| `GET` · `POST` | `/api/bookings` | ses réservations, et réserver |
+| `POST` | `/api/bookings/:id/cancel` | annulation (client ou professionnel) |
+| `GET` · `POST` | `/api/bookings/:id/messages` | fil traduit |
+| `POST` | `/api/translate` | traduction de document |
+| `GET` · `DELETE` | `/api/history[/:id]` | historique — 404 si la conservation est désactivée |
+| `POST` | `/api/billing/checkout` · `/portal` · `/webhook` | abonnement Membre |
+
+## Validation des fiches
+
+`MERCHANT_AUTO_APPROVE=true` (défaut) publie une fiche dès son dépôt. À `false`, elle part
+en file d'attente et n'apparaît pas au catalogue tant qu'un modérateur ne l'a pas publiée —
+le serveur refuse alors de démarrer si `ADMIN_EMAILS` est vide, faute de quoi aucune fiche
+ne pourrait jamais paraître.
+
+Le statut d'une fiche suit quatre états : **en attente**, **publiée**, **en pause** (le
+commerçant l'a retirée lui-même), **refusée**. Un refus **exige un motif** : le professionnel
+doit savoir quoi corriger, et il le lit dans son back-office comme dans le courriel reçu.
+Une fiche refusée puis modifiée **repasse automatiquement en validation**.
+
+Le rôle de modérateur n'est pas stocké en base : il découle de `ADMIN_EMAILS`. Une écriture
+malencontreuse ne peut donc promouvoir personne, et retirer un modérateur revient à changer
+une variable puis redémarrer.
+
+## Mot de passe oublié
+
+Demande depuis le dialogue de connexion : la réponse est **la même que l'adresse existe ou
+non**, et aucun courriel ne part vers une adresse inconnue. Le lien vaut une heure
+(`PASSWORD_RESET_MINUTES`), ne sert **qu'une fois**, et une nouvelle demande annule la
+précédente. Seul le condensé du jeton est stocké : une fuite du fichier ne permet pas de
+fabriquer un lien valide.
+
+Au changement, **toutes les sessions ouvertes sont fermées** — si quelqu'un d'autre était
+connecté, il ne l'est plus — et un courriel signale la modification. Un mot de passe refusé
+(trop court) ne consomme pas le lien : l'utilisateur peut réessayer.
+
+## Décisions techniques notables
+
+- **Un créneau ne peut pas être réservé deux fois** : un index unique **partiel** sur
+  `bookings(slot_id) WHERE status = 'confirmed'` sert de verrou même sous deux requêtes
+  simultanées — et, parce qu'il ne porte que sur les réservations en cours, une annulation
+  libère réellement le créneau. (Une contrainte `UNIQUE` pleine l'aurait bloqué à jamais :
+  c'est un défaut relevé en revue, couvert par un test de régression.)
+- **Une prestation qui a servi ne se supprime pas**, elle se désactive : l'historique des
+  clients reste intact. La règle vaut côté application (409 explicite) et côté base
+  (`ON DELETE RESTRICT`).
+- **Une fiche hors catalogue ne reçoit pas de réservation**, même avec un identifiant de
+  créneau connu : en attente, en pause, suspendue ou refusée, la réservation est refusée.
+- **La suspension par la modération est distincte de la pause** : un commerçant remet en
+  ligne une fiche qu'il a lui-même mise en pause, jamais une fiche suspendue.
+- **Une traduction qui échoue n'emporte pas le reste** : dans un fil ou une liste de
+  réservations, l'élément intraduisible est rendu avec son original et sans traduction ;
+  les autres passent.
+- **Unicité réelle des créneaux** : en SQL, deux `NULL` ne sont pas égaux, donc une
+  contrainte `UNIQUE(commerçant, instant, prestation)` laissait passer des doublons quand
+  la prestation était nulle. La migration 4 pose un index d'expression
+  `COALESCE(service_id, '')` — le test le vérifie.
+- **La limitation de débit ne compte que les échecs d'authentification** : une connexion
+  réussie remet le compteur à zéro — mais pas une inscription, qui sinon offrirait un moyen
+  gratuit de réarmer la force brute. Plusieurs personnes derrière une même adresse IP
+  (bureau, réseau mobile) n'ont pas à se pénaliser entre elles.
+- **Le courriel de réinitialisation part sans retarder la réponse** : un temps de réponse
+  différent selon que l'adresse existe trahirait les comptes, malgré des corps identiques.
+- **Les dates des courriels sont rendues dans le fuseau du service** (`TIMEZONE`,
+  `Europe/Paris` par défaut) : le serveur, lui, tourne en UTC.
+- **Le cache de traduction est invalidé à l'édition** d'une fiche : un texte modifié n'est
+  jamais servi avec son ancienne traduction.
+- **Cloisonnement** : un fil de discussion n'est lisible que par le client et le
+  professionnel concernés ; le back-office n'est accessible qu'au propriétaire de la fiche.
 
 ## Mise en production
 
@@ -46,116 +169,62 @@ docker build -t drdu .
 docker run -d --name drdu -p 3000:3000 --env-file .env -v drdu-data:/app/data drdu
 ```
 
-Le volume `/app/data` porte la base SQLite : sans lui, comptes et rendez-vous disparaissent
-à chaque déploiement. Derrière un proxy TLS, poser `TRUST_PROXY=true` (sinon la limitation
-de débit compte toutes les requêtes sur l'IP du proxy).
+Le volume `/app/data` porte la base SQLite. Derrière un proxy TLS, poser `TRUST_PROXY=true`.
 
-### Garde-fous au démarrage
-
-En `NODE_ENV=production`, le serveur **refuse de démarrer** si :
-
-- `PUBLIC_URL` n'est pas en HTTPS ;
-- `ANTHROPIC_API_KEY` est absente (le studio ne traduirait rien) ;
-- `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` ou `STRIPE_WEBHOOK_SECRET` manquent — sinon la
-  formule Membre serait accordée **sans paiement**.
-
-`MAIL_TRANSPORT=log` ne bloque pas le démarrage mais émet un avertissement : aucun courriel
-ne partirait réellement.
+En `NODE_ENV=production`, le serveur **refuse de démarrer** si `PUBLIC_URL` n'est pas en
+HTTPS, si `ANTHROPIC_API_KEY` manque, ou si Stripe n'est pas configuré (sinon la formule
+Membre serait accordée sans paiement).
 
 ### Avant la première mise en ligne
 
-- [ ] Remplacer les valeurs d'exemple des mentions légales (éditeur, SIRET, hébergeur HDS,
-      numéros RPPS des praticiens) — voir `/mentions-legales` et les variables `CLINIC_*`.
-- [ ] Contractualiser l'hébergement **HDS** (obligatoire pour des données de santé,
-      art. L.1111-8 du code de la santé publique) et signer les actes de sous-traitance
-      (Anthropic, Stripe, hébergeur).
-- [ ] Configurer le webhook Stripe vers `POST /api/billing/webhook` pour les événements
-      `checkout.session.completed`, `customer.subscription.{created,updated,deleted}`.
-- [ ] Brancher `MAIL_WEBHOOK_URL` sur un vrai relais d'envoi, avec SPF/DKIM sur le domaine.
-- [ ] Sauvegardes chiffrées de `data/drdu.sqlite` et test de restauration.
-- [ ] Audit RGAA et test avec des utilisateurs de technologies d'assistance
-      (la déclaration `/accessibilite` annonce honnêtement une conformité *partielle*).
-
-## Sécurité
-
-- **Mots de passe** dérivés par scrypt (sel aléatoire, comparaison en temps constant) ;
-  10 caractères minimum. La connexion effectue une vérification même sans compte, pour ne
-  pas révéler l'existence d'une adresse.
-- **Sessions** en cookie `HttpOnly` / `SameSite=Lax` (+ `Secure` en production) ; seul le
-  condensé SHA-256 du jeton est stocké, et une session neuve est émise à chaque connexion.
-- **CSP stricte** (`default-src 'self'`, aucun script en ligne, `frame-ancestors 'none'`),
-  `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS en production.
-- **CSRF** : cookie `SameSite=Lax` doublé d'une vérification d'origine sur toute requête
-  mutante.
-- **Limitation de débit** par IP : 10 tentatives d'authentification / 15 min, 30 traductions
-  et 10 réservations / heure, 300 requêtes / min au global. En mémoire — derrière plusieurs
-  instances, il faut un magasin partagé (Redis).
-- **Webhooks de facturation** : signature HMAC vérifiée en temps constant, horodatage rejeté
-  au-delà de 5 minutes (anti-rejeu), et idempotence par identifiant d'événement.
-- **Réponses d'erreur** sans détail interne ; les traces restent dans le journal.
-- Les documents déposés ne sont **jamais écrits sur disque** : mémoire, appel au modèle,
-  abandon.
+- [ ] Renseigner les mentions légales réelles (éditeur, SIRET, hébergeur) — variables `SERVICE_*`.
+- [ ] Décider du régime d'entrée des commerçants : `MERCHANT_AUTO_APPROVE=false` impose une
+      validation manuelle avant publication au catalogue.
+- [ ] Signer les actes de sous-traitance (Anthropic, Stripe, hébergeur).
+- [ ] Configurer le webhook Stripe vers `POST /api/billing/webhook`.
+- [ ] Brancher `MAIL_WEBHOOK_URL` sur un relais réel, avec SPF/DKIM.
+- [ ] Audit RGAA et test avec des utilisateurs de technologies d'assistance.
 
 ## Design
 
-Système de jetons CSS dans `public/styles.css` : palette clinique ivoire / vert profond,
-échelle typographique fluide, rythme de 8 px, **mode sombre** natif.
+Registre **administratif** : bleu de référence (#000091) pour l'action et la navigation,
+**rouge** réservé au signalement, **violet** en appui et pour les liens visités, fonds
+**blancs et gris clairs**. Angles droits, ombres discrètes, typographie sans empattement
+(Inter, auto-hébergée : aucune requête vers un tiers).
 
-- **Typographie** — Fraunces et Inter **auto-hébergées** dans `public/fonts/` : aucune
-  requête vers un tiers, ce qui évite le transfert d'adresses IP à Google Fonts, contesté
-  en Europe pour un site de santé. Sous-ensembles latin (416 Ko), `font-display: swap`,
-  préchargement des deux fichiers du premier rendu, cache immuable d'un an.
-- **Contrastes** vérifiés au calcul : toutes les paires texte/fond ≥ 4,5:1 (WCAG AA), dans
-  les deux thèmes.
-- **Accessibilité** — lien d'évitement en premier focus, `:focus-visible` partout, dialogues
-  clavier, zones cliquables ≥ 44 px, `prefers-reduced-motion` respecté.
-- **Impression** — la feuille de style n'imprime que la traduction.
+- **Contrastes** vérifiés au calcul : toutes les paires texte/fond ≥ 4,5:1 (WCAG AA), en
+  thème clair comme en thème sombre.
+- **Mode sombre** natif via `prefers-color-scheme`.
+- **Accessibilité** : lien d'évitement en premier focus, `:focus-visible` visible partout,
+  dialogues clavier, zones cliquables ≥ 44 px, `prefers-reduced-motion` respecté.
 
 ## Architecture
 
 ```
 src/server.js            point d'entrée : garde-fous, écoute, arrêt propre
-src/app.js               routage HTTP, statiques (ETag, gzip, cache), journal des requêtes
-src/config.js            configuration d'environnement et garde-fous de production
-src/db.js                SQLite (node:sqlite) : migrations, requêtes préparées
-src/auth.js              comptes, mots de passe scrypt, sessions par cookie
-src/billing.js           Stripe Checkout et portail en REST, webhooks signés, mode simulé
-src/mailer.js            courriels transactionnels (transports « log » et « webhook »)
+src/app.js               routage HTTP, statiques (ETag, gzip, cache), journal
+src/config.js            configuration, fonctions optionnelles, garde-fous de production
+src/db.js                SQLite : migrations, commerçants, prestations, créneaux,
+                         réservations, messages, cache de traduction
+src/auth.js              comptes, scrypt, sessions par cookie
+src/i18n.js              dictionnaire fr / zh / en de l'interface
+src/ai-text.js           traduction des textes courts (précisions, messages)
+src/ai.js                traduction de documents : deux paliers, schéma de la notice
+src/billing.js           Stripe Checkout et portail, webhooks signés, mode simulé
+src/mailer.js            courriels (bienvenue, confirmation, annulation, abonnement)
 src/security.js          en-têtes, CSP, limitation de débit, vérification d'origine
-src/ai.js                appels Claude : prompts des deux paliers, schéma de la notice
 src/logger.js            journal structuré en JSON par ligne
-public/                  interface et pages légales (HTML/CSS/JS sans build)
-test/                    suite node:test, base isolée par fichier
+public/                  quatre pages + pages légales, modules ES sans build
+test/                    node:test, base isolée par fichier
 ```
-
-### API
-
-| Méthode | Route | Rôle |
-|---|---|---|
-| `GET` | `/healthz` | sonde de vivacité (état, version, modes) |
-| `GET` | `/api/config` | modes, langues, praticiens et créneaux libres, utilisateur courant |
-| `POST` | `/api/auth/signup` · `/login` · `/logout` | comptes et session |
-| `GET` | `/api/auth/me` | utilisateur courant |
-| `POST` | `/api/billing/checkout` | ouvre le paiement de l'abonnement |
-| `POST` | `/api/billing/portal` | gestion et résiliation |
-| `POST` | `/api/billing/webhook` | événements Stripe (signés, idempotents) |
-| `POST` | `/api/translate` | traduit un document (`target`, `fileName`, `mediaType`, `dataBase64` ou `text`) |
-| `GET` | `/api/history` · `DELETE /api/history/:id` | historique du membre |
-| `GET` · `POST` | `/api/appointments` | ses rendez-vous, et réservation |
-
-Un créneau ne peut être pris deux fois : la contrainte `UNIQUE(doctor_id, slot)` sert de
-verrou, deux réservations simultanées ne peuvent pas passer.
-
-Pages publiques : `/`, `/mentions-legales`, `/confidentialite`, `/cgu`, `/accessibilite`,
-`/robots.txt`, `/sitemap.xml`, plus une page 404.
 
 ## Limites connues
 
-- **Une seule instance** : la limitation de débit est en mémoire et SQLite est local. Pour
-  monter en charge, il faut un magasin partagé et une base réseau.
-- **Pas de réinitialisation de mot de passe** ni de double authentification.
-- Les créneaux sont déclarés en dur dans `src/doctors.js` : pas encore d'agenda praticien,
-  ni d'annulation en ligne.
-- Le build de l'image Docker n'a pas pu être exécuté dans l'environnement de développement
-  (aucun démon Docker) ; la CI le construit à chaque poussée.
-- La traduction est une aide à la compréhension : **seul le document d'origine fait foi**.
+- **Une seule instance** : limitation de débit en mémoire, SQLite local.
+- **Pas de double authentification**, ni de changement de mot de passe depuis un compte
+  connecté (seule la procédure « mot de passe oublié » existe).
+- Pas de photos d'établissement (pas de stockage d'objets), pas de notation ni d'avis.
+- Un seul fuseau pour les courriels (`TIMEZONE`) ; l'interface suit celui du navigateur.
+  Des commerçants dans plusieurs fuseaux demanderaient un fuseau par établissement.
+- Le build Docker n'a pas pu être exécuté ici (aucun démon) ; la CI le construit.
+- Les traductions sont produites par un modèle : **l'original fait foi**.

@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Politique de confidentialité — D.R DU</title>
-<meta name="description" content="Données traitées, durées de conservation et droits RGPD sur le site D.R DU." />
+<title>Politique de confidentialité — D.R. RDV</title>
+<meta name="description" content="Données traitées, durées de conservation et droits RGPD sur le site D.R. RDV." />
 <meta name="robots" content="index, follow" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d3b3a'/%3E%3Cpath d='M14 8h4v6h6v4h-6v6h-4v-6H8v-4h6z' fill='%23f4efe6'/%3E%3C/svg%3E" />
-<meta name="theme-color" content="#0d3b3a" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#101715" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000091'/%3E%3Cpath d='M9 7h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm2 6v3h3v-3h-3zm5 0v3h3v-3h-3zm-5 5v3h3v-3h-3zm5 0v3h3v-3h-3z' fill='%23ffffff'/%3E%3C/svg%3E" />
+<meta name="theme-color" content="#000091" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#10101a" media="(prefers-color-scheme: dark)" />
 <link rel="stylesheet" href="/fonts.css" />
 <link rel="stylesheet" href="/styles.css" />
 </head>
@@ -18,15 +18,14 @@
   <div class="wrap topbar-inner">
     <a class="brand" href="/">
       <span class="brand-mark" aria-hidden="true">+</span>
-      <span class="brand-text">D.R&nbsp;DU<small>Clinique &amp; documents de santé</small></span>
+      <span class="brand-text">D.R.&nbsp;RDV<small>Réservation en ligne · multilingue</small></span>
     </a>
     <nav aria-label="Navigation principale">
-      <a href="/#praticiens">Praticiens</a>
-      <a href="/#studio">Traduction IA</a>
+      <a href="/reserver">Réserver</a>
       <a href="/#offres">Offres</a>
       <a href="/#faq">FAQ</a>
     </nav>
-    <a class="btn btn-primary btn-sm" href="/#praticiens">Prendre rendez-vous</a>
+    <a class="btn btn-primary btn-sm" href="/reserver">Réserver</a>
   </div>
 </header>
 <main id="contenu" class="section">
@@ -36,63 +35,72 @@
     <p class="lede">Ce que nous traitons, pourquoi, combien de temps, et comment reprendre la main.</p>
 
     <h2>Responsable du traitement</h2>
-    <p>Société D.R DU SAS, 12 place de la République, 75011 Paris. Délégué à la protection
-    des données : dpo@drdu.example.</p>
+    <p>Société D.R. RDV SAS, 12 place de la République, 75011 Paris. Délégué à la protection des
+    données : dpo@drdu.example.</p>
 
     <h2>Ce que nous traitons</h2>
     <table class="glossary">
       <thead><tr><th>Donnée</th><th>Finalité</th><th>Base légale</th><th>Conservation</th></tr></thead>
       <tbody>
-        <tr><td>Nom, courriel, téléphone</td><td>Prise de rendez-vous et confirmation</td><td>Exécution du contrat</td><td>3 ans après le dernier contact</td></tr>
-        <tr><td>Motif de consultation (facultatif)</td><td>Préparation de la consultation</td><td>Consentement</td><td>Supprimé après la consultation</td></tr>
+        <tr><td>Nom, courriel</td><td>Compte, confirmation de réservation</td><td>Exécution du contrat</td><td>3 ans après le dernier contact</td></tr>
         <tr><td>Mot de passe (dérivé par scrypt)</td><td>Sécurité du compte</td><td>Intérêt légitime</td><td>Durée du compte</td></tr>
-        <tr><td>Document de santé déposé</td><td>Production de la traduction</td><td>Consentement explicite (art. 9.2.a RGPD)</td><td><strong>Non conservé</strong> : traité en mémoire puis abandonné</td></tr>
-        <tr><td>Traduction et notice (membres)</td><td>Historique de vos documents</td><td>Consentement</td><td>50 documents maximum, supprimables à l'unité</td></tr>
+        <tr><td>Langue d'interface</td><td>Affichage et traduction</td><td>Exécution du contrat</td><td>Durée du compte</td></tr>
+        <tr><td>Fiche d'établissement (professionnels)</td><td>Publication au catalogue</td><td>Exécution du contrat</td><td>Durée de l'inscription</td></tr>
+        <tr><td>Réservations, créneaux, précisions</td><td>Gestion des rendez-vous</td><td>Exécution du contrat</td><td>3 ans (preuve en cas de litige)</td></tr>
+        <tr><td>Messages échangés</td><td>Communication client–professionnel</td><td>Exécution du contrat</td><td>3 ans</td></tr>
+        <tr><td>Traductions mises en cache</td><td>Éviter de retraduire, réduire le coût</td><td>Intérêt légitime</td><td>Supprimées avec la réservation ou le message</td></tr>
+        <tr><td>Document déposé dans l'outil de traduction</td><td>Production de la traduction</td><td>Consentement</td><td><strong>Non conservé</strong> : traité en mémoire puis abandonné</td></tr>
         <tr><td>Statut d'abonnement</td><td>Facturation</td><td>Exécution du contrat</td><td>10 ans (obligations comptables)</td></tr>
         <tr><td>Journaux techniques</td><td>Sécurité et diagnostic</td><td>Intérêt légitime</td><td>12 mois</td></tr>
       </tbody>
     </table>
 
-    <h2>Le document déposé n'est pas stocké</h2>
-    <p>Le fichier que vous déposez n'est jamais écrit sur disque : il transite en mémoire,
-    est transmis au modèle de traduction, puis abandonné à la fin de la requête. Seul le
-    résultat vous est renvoyé — et, si vous êtes membre, enregistré dans votre historique
-    jusqu'à ce que vous le supprimiez.</p>
+    <h2>Ce que voit le professionnel</h2>
+    <p>Lorsque vous réservez, le professionnel voit votre nom, votre adresse électronique, la
+    prestation, le créneau et la précision que vous avez laissée — dans sa langue, avec votre
+    texte d'origine consultable. Il ne voit ni vos autres réservations, ni votre historique
+    ailleurs sur la plateforme.</p>
+
+    <h2>Documents déposés dans l'outil de traduction</h2>
+    <p>Le fichier n'est jamais écrit sur disque : il transite en mémoire, est traduit, puis
+    abandonné. La conservation d'un historique est une fonction désactivée par défaut ; lorsqu'elle
+    est activée par l'exploitant, elle reste un choix explicite à chaque traduction.</p>
 
     <h2>Sous-traitants</h2>
     <ul class="plain-list">
-      <li><strong>Anthropic</strong> — traduction et analyse du document. Les contenus soumis
-      par l'API ne servent pas à l'entraînement des modèles.</li>
-      <li><strong>Stripe</strong> — paiement de l'abonnement. Nous ne voyons ni ne stockons
-      aucune coordonnée bancaire.</li>
-      <li><strong>Hébergeur certifié HDS</strong> — hébergement de la base et des sauvegardes,
-      en France.</li>
+      <li><strong>Anthropic</strong> — traduction des messages, des précisions et des documents.
+      Les contenus soumis par l'API ne servent pas à l'entraînement des modèles.</li>
+      <li><strong>Stripe</strong> — paiement de l'abonnement Membre. Nous ne voyons ni ne stockons
+      aucune coordonnée bancaire. Les prestations réservées, elles, ne sont pas encaissées par la
+      plateforme.</li>
+      <li><strong>Hébergeur</strong> — hébergement du site et de la base, en France.</li>
     </ul>
     <p>Aucun transfert hors Union européenne n'a lieu sans clauses contractuelles types.</p>
 
     <h2>Traceurs</h2>
     <p>Le site ne dépose <strong>qu'un seul cookie</strong>, <code>drdu_session</code>, strictement
-    nécessaire à votre connexion (<code>HttpOnly</code>, <code>SameSite=Lax</code>, 30 jours). Aucune
-    mesure d'audience, aucune publicité, aucun partage avec un réseau social : votre consentement
-    n'est donc pas requis, et aucune bannière ne vous est imposée. Les polices de caractères sont
-    servies depuis notre propre domaine, votre adresse IP n'est transmise à aucun tiers.</p>
+    nécessaire à votre connexion (<code>HttpOnly</code>, <code>SameSite=Lax</code>, 30 jours).
+    Aucune mesure d'audience, aucune publicité, aucun partage avec un réseau social : votre
+    consentement n'est donc pas requis et aucune bannière ne vous est imposée. Les polices sont
+    servies depuis notre domaine, votre adresse IP n'est transmise à aucun tiers.</p>
 
     <h2>Vos droits</h2>
     <p>Vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation,
     d'opposition et de portabilité. Écrivez à dpo@drdu.example : nous répondons sous un mois.
-    Vous pouvez également introduire une réclamation auprès de la <strong>CNIL</strong>
-    (3 place de Fontenoy, 75007 Paris, cnil.fr). Vos documents peuvent être supprimés
-    immédiatement depuis « Mes documents traduits ».</p>
+    Vous pouvez introduire une réclamation auprès de la <strong>CNIL</strong> (3 place de Fontenoy,
+    75007 Paris, cnil.fr). La suppression d'un compte entraîne celle de ses réservations à venir
+    et de ses messages ; les réservations passées peuvent être conservées le temps de la
+    prescription en cas de litige.</p>
 
     <h2>Sécurité</h2>
-    <p>Chiffrement du transport en HTTPS, mots de passe dérivés par scrypt avec sel,
-    jetons de session stockés uniquement sous forme de condensé, limitation des tentatives
-    de connexion, cloisonnement des données par compte.</p>
+    <p>Chiffrement du transport en HTTPS, mots de passe dérivés par scrypt avec sel, jetons de
+    session stockés uniquement sous forme de condensé, limitation des tentatives de connexion,
+    cloisonnement des données par compte et par établissement.</p>
   </div>
 </main>
 <footer class="footer">
   <div class="wrap">
-    <p><strong>D.R DU</strong> — 12 place de la République, 75011 Paris · +33 1 84 00 12 12</p>
+    <p><strong>D.R. RDV</strong> — plateforme de réservation · 12 place de la République, 75011 Paris · +33 1 84 00 12 12</p>
     <p class="footer-legal">
       <span><a href="/mentions-legales">Mentions légales</a></span>
       <span><a href="/confidentialite">Politique de confidentialité</a></span>
