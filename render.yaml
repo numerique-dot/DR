@@ -1,0 +1,41 @@
+# Déploiement Render — https://render.com
+# Créer un « Blueprint » pointant sur ce dépôt : Render lit ce fichier.
+services:
+  - type: web
+    name: drdu-rdv
+    runtime: docker
+    region: frankfurt          # région européenne la plus proche
+    plan: starter              # le disque persistant exige un plan payant
+    healthCheckPath: /healthz
+    numInstances: 1            # SQLite : une seule instance
+    disk:
+      name: drdu-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: DATABASE_FILE
+        value: /app/data/drdu.sqlite
+      - key: TIMEZONE
+        value: Europe/Paris
+      - key: PUBLIC_DEMO
+        value: "true"          # retirer quand Stripe et Anthropic sont configurés
+      - key: PUBLIC_URL
+        sync: false            # à renseigner : https://<service>.onrender.com
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: MAIL_WEBHOOK_URL
+        sync: false

@@ -181,7 +181,17 @@ directement par les tests avec une horloge simulée.
 - **Cloisonnement** : un fil de discussion n'est lisible que par le client et le
   professionnel concernés ; le back-office n'est accessible qu'au propriétaire de la fiche.
 
+## Prévisualisation autonome
+
+`npm run build:preview` produit `preview/index.html` : le site complet dans un seul fichier, avec
+un serveur simulé dans le navigateur (données d'exemple, comptes de démonstration, aucun
+réseau). Il s'ouvre en double-cliquant, se partage tel quel, et sert à montrer le produit sans
+rien déployer.
+
 ## Mise en production
+
+Guide pas à pas par plateforme (Fly.io, Render, Railway, VPS) : **[docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)**.
+Pour une démonstration publique sans Stripe ni clé Anthropic, poser `PUBLIC_DEMO=true`.
 
 ```bash
 cp .env.example .env      # puis renseigner les valeurs réelles

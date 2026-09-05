@@ -8,12 +8,16 @@
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\"",
-    "test:watch": "node --disable-warning=ExperimentalWarning --test --watch \"test/*.test.js\""
+    "test:watch": "node --disable-warning=ExperimentalWarning --test --watch \"test/*.test.js\"",
+    "build:preview": "node --disable-warning=ExperimentalWarning scripts/build-preview.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.62.1"
   }
 }

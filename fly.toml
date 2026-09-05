@@ -1,0 +1,42 @@
+# Déploiement Fly.io — https://fly.io
+#   fly launch --copy-config --no-deploy   (première fois, choisir la région cdg = Paris)
+#   fly volumes create drdu_data --region cdg --size 1
+#   fly secrets set PUBLIC_URL=https://<app>.fly.dev PUBLIC_DEMO=true
+#   fly deploy
+app = "drdu-rdv"            # à adapter : le nom doit être unique sur Fly
+primary_region = "cdg"      # Paris
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  HOST = "0.0.0.0"
+  TRUST_PROXY = "true"
+  DATABASE_FILE = "/app/data/drdu.sqlite"
+  TIMEZONE = "Europe/Paris"
+
+# La base SQLite vit sur un volume : sans lui, tout disparaît à chaque déploiement.
+[[mounts]]
+  source = "drdu_data"
+  destination = "/app/data"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
+
+# SQLite = une seule machine. Ne pas augmenter le nombre d'instances sans changer de base.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
