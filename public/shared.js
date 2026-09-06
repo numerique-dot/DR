@@ -94,6 +94,7 @@ export async function boot() {
   const select = $("#locale-select");
   if (select) select.value = state.locale;
   announce();
+  document.dispatchEvent(new CustomEvent("drrdv:ready"));
   await handleBillingReturn();
   return state;
 }
@@ -364,3 +365,96 @@ $("#forgot-form")?.addEventListener("submit", async (event) => {
     button.disabled = false;
   }
 });
+
+/* ---------- Application installable (PWA) ---------- */
+
+const INSTALL_DISMISSED_KEY = "drrdv.install.dismissed";
+
+function installDismissed() {
+  try {
+    const until = Number(localStorage.getItem(INSTALL_DISMISSED_KEY) ?? 0);
+    return until > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function dismissInstall(days = 30) {
+  try {
+    localStorage.setItem(INSTALL_DISMISSED_KEY, String(Date.now() + days * 86400000));
+  } catch {
+    /* stockage indisponible : la bannière reviendra à la prochaine visite */
+  }
+  document.querySelector(".install-banner")?.remove();
+}
+
+function showInstallBanner(onInstall, hint = "") {
+  if (installDismissed() || document.querySelector(".install-banner")) return;
+  const banner = document.createElement("aside");
+  banner.className = "install-banner";
+  banner.setAttribute("role", "region");
+  banner.setAttribute("aria-label", "Installer l'application");
+  const img = document.createElement("img");
+  img.src = "/icones/icone-192.png";
+  img.alt = "";
+  const text = document.createElement("p");
+  text.textContent = `${t("app.install")}${hint ? ` ${hint}` : ""}`;
+  const later = document.createElement("button");
+  later.type = "button";
+  later.className = "btn btn-later";
+  later.textContent = t("app.install.later");
+  later.addEventListener("click", () => dismissInstall());
+  banner.append(img, text);
+  if (onInstall) {
+    const install = document.createElement("button");
+    install.type = "button";
+    install.className = "btn btn-install";
+    install.textContent = t("app.install.button");
+    install.addEventListener("click", async () => {
+      install.disabled = true;
+      await onInstall();
+      banner.remove();
+    });
+    banner.append(install);
+  }
+  banner.append(later);
+  document.body.append(banner);
+}
+
+function setupInstallableApp() {
+  if (window.__PREVIEW__ || !("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return;
+
+  navigator.serviceWorker.register("/sw.js").catch(() => {
+    /* le site fonctionne sans cache hors ligne */
+  });
+
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (standalone) return;
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    showInstallBanner(async () => {
+      event.prompt();
+      try {
+        await event.userChoice;
+      } catch {
+        /* refus ou fermeture : rien à faire */
+      }
+      dismissInstall(180);
+    });
+  });
+
+  // iOS ne déclenche pas beforeinstallprompt : on indique le chemin.
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && /safari/i.test(navigator.userAgent);
+  if (ios) {
+    const show = () => showInstallBanner(null, t("app.install.ios"));
+    if (state.dictionary["app.install"]) show();
+    else document.addEventListener("drrdv:ready", show, { once: true });
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", setupInstallableApp, { once: true });
+} else {
+  setupInstallableApp();
+}

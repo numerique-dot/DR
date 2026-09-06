@@ -746,6 +746,23 @@ a:visited { color: var(--purple); }
 .mod-note { display: grid; gap: .3rem; }
 .mod-note textarea { width: 100%; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); font: inherit; resize: vertical; }
 
+/* ---------- 20. Application installable ---------- */
+.offline { max-width: 40rem; padding-block: 4rem; text-align: left; }
+.offline h1 { margin-top: .5rem; }
+.install-banner {
+  position: fixed; inset: auto 0 0 0; z-index: 60;
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: .85rem 1.25rem; padding-bottom: calc(.85rem + env(safe-area-inset-bottom));
+  background: var(--blue); color: #fff;
+  border-top: 3px solid var(--red);
+  box-shadow: 0 -4px 16px rgba(0,0,0,.18);
+}
+.install-banner img { width: 2.5rem; height: 2.5rem; border-radius: .5rem; }
+.install-banner p { flex: 1 1 14rem; margin: 0; font-size: .95rem; }
+.install-banner .btn-install { background: #fff; color: var(--blue); border-color: #fff; }
+.install-banner .btn-later { background: transparent; color: #fff; border-color: rgba(255,255,255,.6); }
+@media (display-mode: standalone) { .install-banner { display: none; } }
+
 
 .preview-bar { display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: baseline; padding: .55rem var(--gutter); background: #ffe552; color: #161621; font-size: .82rem; border-bottom: 1px solid #d8c23a; }
 .preview-bar .link { color: #000091; }
@@ -1629,7 +1646,8 @@ a:visited { color: var(--purple); }
 /* API simulée pour la prévisualisation : même contrat que le serveur, données
    en mémoire, aucun réseau. Les valeurs __XXX__ sont injectées à la construction. */
 (() => {
-  const DICTIONARIES = {"fr":{"nav.catalogue":"Réserver","nav.bookings":"Mes réservations","nav.pro":"Espace professionnel","nav.translation":"Traduction","pro.title":"Espace professionnel","pro.tab.agenda":"Agenda","pro.tab.bookings":"Réservations","pro.tab.services":"Prestations","pro.tab.shop":"Mon établissement","pro.slots.open":"Ouvrir des créneaux","pro.slots.none":"Aucun créneau à venir. Ouvrez-en pour être réservable.","pro.slots.booked":"Réservé","pro.slots.free":"Libre","pro.service.add":"Ajouter une prestation","pro.service.duration":"Durée (minutes)","pro.service.price":"Prix (€)","pro.bookings.none":"Aucune réservation pour l'instant.","booking.confirm":"Confirmer la réservation","booking.note":"Précision pour le professionnel (facultatif)","booking.cancel":"Annuler","booking.cancelled":"Annulée","booking.reference":"Référence","message.send":"Envoyer","message.placeholder":"Écrivez dans votre langue…","message.original":"Voir l'original","common.save":"Enregistrer","common.language":"Langue de l'interface","common.translated":"Traduit automatiquement","brand.tagline":"Réservation en ligne · multilingue","account.login":"Se connecter","account.signup":"Créer un compte","account.logout":"Se déconnecter","form.date":"Date","form.from":"De","form.to":"À","form.step":"Pas","form.step.hint":"(minutes entre deux créneaux)","form.optional":"(facultatif)","form.all":"Toutes","form.name":"Nom","form.description":"Description","pro.status.published":"publié au catalogue","pro.status.pending":"en attente de validation : votre fiche n'apparaît pas encore au catalogue","pro.service.none":"Aucune prestation. Ajoutez-en au moins une : sans prestation, on ne peut pas vous réserver.","pro.service.disable":"Désactiver","pro.service.enable":"Réactiver","pro.service.delete":"Supprimer","catalog.title":"Trouver un professionnel","catalog.subtitle":"Les créneaux affichés sont libres à l'instant où vous lisez cette page.","catalog.city":"Ville","catalog.category":"Métier","catalog.book":"Réserver","catalog.full":"Aucun créneau","catalog.none":"Aucun établissement ne correspond. Élargissez la recherche, ou revenez plus tard.","catalog.slots":"créneau(x) libre(s)","catalog.noslots":"Aucun créneau libre en ce moment","bookings.none":"Aucune réservation pour l'instant.","booking.messages":"Messages","booking.service":"Prestation","booking.slot":"Créneau","message.none":"Aucun message. Posez votre question : elle sera traduite."},"zh":{"nav.catalogue":"预约","nav.bookings":"我的预约","nav.pro":"商家后台","nav.translation":"翻译","pro.title":"商家后台","pro.tab.agenda":"日程","pro.tab.bookings":"预约单","pro.tab.services":"服务项目","pro.tab.shop":"我的店铺","pro.slots.open":"开放可约时段","pro.slots.none":"暂无可约时段。开放时段后客户才能预约。","pro.slots.booked":"已约","pro.slots.free":"空闲","pro.service.add":"添加服务项目","pro.service.duration":"时长（分钟）","pro.service.price":"价格（欧元）","pro.bookings.none":"暂无预约。","booking.confirm":"确认预约","booking.note":"给商家的说明（可选）","booking.cancel":"取消","booking.cancelled":"已取消","booking.reference":"预约号","message.send":"发送","message.placeholder":"用你的语言写即可……","message.original":"查看原文","common.save":"保存","common.language":"界面语言","common.translated":"自动翻译","brand.tagline":"在线预约 · 多语言","account.login":"登录","account.signup":"注册账号","account.logout":"退出登录","form.date":"日期","form.from":"从","form.to":"到","form.step":"间隔","form.step.hint":"（两个时段之间的分钟数）","form.optional":"（可选）","form.all":"全部","form.name":"名称","form.description":"介绍","pro.status.published":"已在目录中展示","pro.status.pending":"等待审核：店铺尚未在目录中展示","pro.service.none":"还没有服务项目。至少添加一项，否则客户无法预约。","pro.service.disable":"停用","pro.service.enable":"恢复","pro.service.delete":"删除","catalog.title":"寻找专业人士","catalog.subtitle":"页面显示的时段为当前可约时段。","catalog.city":"城市","catalog.category":"行业","catalog.book":"预约","catalog.full":"暂无时段","catalog.none":"没有符合条件的商家。请放宽筛选条件，或稍后再看。","catalog.slots":"个可约时段","catalog.noslots":"目前没有可约时段","bookings.none":"暂无预约。","booking.messages":"消息","booking.service":"服务项目","booking.slot":"时段","message.none":"还没有消息。有问题就问，系统会自动翻译。"},"en":{"nav.catalogue":"Book","nav.bookings":"My bookings","nav.pro":"Business account","nav.translation":"Translation","pro.title":"Business account","pro.tab.agenda":"Schedule","pro.tab.bookings":"Bookings","pro.tab.services":"Services","pro.tab.shop":"My business","pro.slots.open":"Open time slots","pro.slots.none":"No upcoming slots. Open some so customers can book.","pro.slots.booked":"Booked","pro.slots.free":"Free","pro.service.add":"Add a service","pro.service.duration":"Duration (minutes)","pro.service.price":"Price (€)","pro.bookings.none":"No bookings yet.","booking.confirm":"Confirm booking","booking.note":"Note for the professional (optional)","booking.cancel":"Cancel","booking.cancelled":"Cancelled","booking.reference":"Reference","message.send":"Send","message.placeholder":"Write in your own language…","message.original":"Show original","common.save":"Save","common.language":"Interface language","common.translated":"Machine translated","brand.tagline":"Online booking · multilingual","account.login":"Log in","account.signup":"Create an account","account.logout":"Log out","form.date":"Date","form.from":"From","form.to":"To","form.step":"Interval","form.step.hint":"(minutes between slots)","form.optional":"(optional)","form.all":"All","form.name":"Name","form.description":"Description","pro.status.published":"listed in the directory","pro.status.pending":"awaiting approval: your listing is not public yet","pro.service.none":"No services yet. Add at least one — without a service, nobody can book you.","pro.service.disable":"Disable","pro.service.enable":"Re-enable","pro.service.delete":"Delete","catalog.title":"Find a professional","catalog.subtitle":"The slots shown are free as you read this page.","catalog.city":"City","catalog.category":"Trade","catalog.book":"Book","catalog.full":"No slots","catalog.none":"No business matches. Widen your search, or come back later.","catalog.slots":"free slot(s)","catalog.noslots":"No free slot right now","bookings.none":"No bookings yet.","booking.messages":"Messages","booking.service":"Service","booking.slot":"Slot","message.none":"No messages yet. Ask your question — it will be translated."}};
+  window.__PREVIEW__ = true;
+  const DICTIONARIES = {"fr":{"nav.catalogue":"Réserver","nav.bookings":"Mes réservations","nav.pro":"Espace professionnel","nav.translation":"Traduction","app.install":"Installer D.R. RDV sur cet appareil : réservations et messages à portée de main, même en déplacement.","app.install.button":"Installer l'application","app.install.later":"Plus tard","app.install.ios":"Sur iPhone ou iPad : Partager, puis « Sur l'écran d'accueil ».","pro.title":"Espace professionnel","pro.tab.agenda":"Agenda","pro.tab.bookings":"Réservations","pro.tab.services":"Prestations","pro.tab.shop":"Mon établissement","pro.slots.open":"Ouvrir des créneaux","pro.slots.none":"Aucun créneau à venir. Ouvrez-en pour être réservable.","pro.slots.booked":"Réservé","pro.slots.free":"Libre","pro.service.add":"Ajouter une prestation","pro.service.duration":"Durée (minutes)","pro.service.price":"Prix (€)","pro.bookings.none":"Aucune réservation pour l'instant.","booking.confirm":"Confirmer la réservation","booking.note":"Précision pour le professionnel (facultatif)","booking.cancel":"Annuler","booking.cancelled":"Annulée","booking.reference":"Référence","message.send":"Envoyer","message.placeholder":"Écrivez dans votre langue…","message.original":"Voir l'original","common.save":"Enregistrer","common.language":"Langue de l'interface","common.translated":"Traduit automatiquement","brand.tagline":"Réservation en ligne · multilingue","account.login":"Se connecter","account.signup":"Créer un compte","account.logout":"Se déconnecter","form.date":"Date","form.from":"De","form.to":"À","form.step":"Pas","form.step.hint":"(minutes entre deux créneaux)","form.optional":"(facultatif)","form.all":"Toutes","form.name":"Nom","form.description":"Description","pro.status.published":"publié au catalogue","pro.status.pending":"en attente de validation : votre fiche n'apparaît pas encore au catalogue","pro.service.none":"Aucune prestation. Ajoutez-en au moins une : sans prestation, on ne peut pas vous réserver.","pro.service.disable":"Désactiver","pro.service.enable":"Réactiver","pro.service.delete":"Supprimer","catalog.title":"Trouver un professionnel","catalog.subtitle":"Les créneaux affichés sont libres à l'instant où vous lisez cette page.","catalog.city":"Ville","catalog.category":"Métier","catalog.book":"Réserver","catalog.full":"Aucun créneau","catalog.none":"Aucun établissement ne correspond. Élargissez la recherche, ou revenez plus tard.","catalog.slots":"créneau(x) libre(s)","catalog.noslots":"Aucun créneau libre en ce moment","bookings.none":"Aucune réservation pour l'instant.","booking.messages":"Messages","booking.service":"Prestation","booking.slot":"Créneau","message.none":"Aucun message. Posez votre question : elle sera traduite."},"zh":{"nav.catalogue":"预约","nav.bookings":"我的预约","nav.pro":"商家后台","nav.translation":"翻译","app.install":"把 D.R. RDV 安装到此设备：预约和消息随手可查，出行也不受影响。","app.install.button":"安装应用","app.install.later":"以后再说","app.install.ios":"iPhone 或 iPad：点「分享」，再选「添加到主屏幕」。","pro.title":"商家后台","pro.tab.agenda":"日程","pro.tab.bookings":"预约单","pro.tab.services":"服务项目","pro.tab.shop":"我的店铺","pro.slots.open":"开放可约时段","pro.slots.none":"暂无可约时段。开放时段后客户才能预约。","pro.slots.booked":"已约","pro.slots.free":"空闲","pro.service.add":"添加服务项目","pro.service.duration":"时长（分钟）","pro.service.price":"价格（欧元）","pro.bookings.none":"暂无预约。","booking.confirm":"确认预约","booking.note":"给商家的说明（可选）","booking.cancel":"取消","booking.cancelled":"已取消","booking.reference":"预约号","message.send":"发送","message.placeholder":"用你的语言写即可……","message.original":"查看原文","common.save":"保存","common.language":"界面语言","common.translated":"自动翻译","brand.tagline":"在线预约 · 多语言","account.login":"登录","account.signup":"注册账号","account.logout":"退出登录","form.date":"日期","form.from":"从","form.to":"到","form.step":"间隔","form.step.hint":"（两个时段之间的分钟数）","form.optional":"（可选）","form.all":"全部","form.name":"名称","form.description":"介绍","pro.status.published":"已在目录中展示","pro.status.pending":"等待审核：店铺尚未在目录中展示","pro.service.none":"还没有服务项目。至少添加一项，否则客户无法预约。","pro.service.disable":"停用","pro.service.enable":"恢复","pro.service.delete":"删除","catalog.title":"寻找专业人士","catalog.subtitle":"页面显示的时段为当前可约时段。","catalog.city":"城市","catalog.category":"行业","catalog.book":"预约","catalog.full":"暂无时段","catalog.none":"没有符合条件的商家。请放宽筛选条件，或稍后再看。","catalog.slots":"个可约时段","catalog.noslots":"目前没有可约时段","bookings.none":"暂无预约。","booking.messages":"消息","booking.service":"服务项目","booking.slot":"时段","message.none":"还没有消息。有问题就问，系统会自动翻译。"},"en":{"nav.catalogue":"Book","nav.bookings":"My bookings","nav.pro":"Business account","nav.translation":"Translation","app.install":"Install D.R. RDV on this device: bookings and messages at hand, even on the go.","app.install.button":"Install the app","app.install.later":"Later","app.install.ios":"On iPhone or iPad: Share, then \"Add to Home Screen\".","pro.title":"Business account","pro.tab.agenda":"Schedule","pro.tab.bookings":"Bookings","pro.tab.services":"Services","pro.tab.shop":"My business","pro.slots.open":"Open time slots","pro.slots.none":"No upcoming slots. Open some so customers can book.","pro.slots.booked":"Booked","pro.slots.free":"Free","pro.service.add":"Add a service","pro.service.duration":"Duration (minutes)","pro.service.price":"Price (€)","pro.bookings.none":"No bookings yet.","booking.confirm":"Confirm booking","booking.note":"Note for the professional (optional)","booking.cancel":"Cancel","booking.cancelled":"Cancelled","booking.reference":"Reference","message.send":"Send","message.placeholder":"Write in your own language…","message.original":"Show original","common.save":"Save","common.language":"Interface language","common.translated":"Machine translated","brand.tagline":"Online booking · multilingual","account.login":"Log in","account.signup":"Create an account","account.logout":"Log out","form.date":"Date","form.from":"From","form.to":"To","form.step":"Interval","form.step.hint":"(minutes between slots)","form.optional":"(optional)","form.all":"All","form.name":"Name","form.description":"Description","pro.status.published":"listed in the directory","pro.status.pending":"awaiting approval: your listing is not public yet","pro.service.none":"No services yet. Add at least one — without a service, nobody can book you.","pro.service.disable":"Disable","pro.service.enable":"Re-enable","pro.service.delete":"Delete","catalog.title":"Find a professional","catalog.subtitle":"The slots shown are free as you read this page.","catalog.city":"City","catalog.category":"Trade","catalog.book":"Book","catalog.full":"No slots","catalog.none":"No business matches. Widen your search, or come back later.","catalog.slots":"free slot(s)","catalog.noslots":"No free slot right now","bookings.none":"No bookings yet.","booking.messages":"Messages","booking.service":"Service","booking.slot":"Slot","message.none":"No messages yet. Ask your question — it will be translated."}};
   const LOCALES = {"fr":"Français","zh":"中文","en":"English"};
   const CATEGORIES = {"beaute":"Beauté et coiffure","bienetre":"Bien-être et massage","juridique":"Juridique, comptable et fiscal","formation":"Cours et formation","reparation":"Réparation et entretien","demarches":"Aide aux démarches administratives","autre":"Autre service"};
   const DEMO_TRANSLATION = {
@@ -2263,6 +2281,7 @@ async function boot() {
   const select = $("#locale-select");
   if (select) select.value = state.locale;
   announce();
+  document.dispatchEvent(new CustomEvent("drrdv:ready"));
   await handleBillingReturn();
   return state;
 }
@@ -2532,6 +2551,99 @@ $("#forgot-form")?.addEventListener("submit", async (event) => {
     button.disabled = false;
   }
 });
+
+/* ---------- Application installable (PWA) ---------- */
+
+const INSTALL_DISMISSED_KEY = "drrdv.install.dismissed";
+
+function installDismissed() {
+  try {
+    const until = Number(localStorage.getItem(INSTALL_DISMISSED_KEY) ?? 0);
+    return until > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function dismissInstall(days = 30) {
+  try {
+    localStorage.setItem(INSTALL_DISMISSED_KEY, String(Date.now() + days * 86400000));
+  } catch {
+    /* stockage indisponible : la bannière reviendra à la prochaine visite */
+  }
+  document.querySelector(".install-banner")?.remove();
+}
+
+function showInstallBanner(onInstall, hint = "") {
+  if (installDismissed() || document.querySelector(".install-banner")) return;
+  const banner = document.createElement("aside");
+  banner.className = "install-banner";
+  banner.setAttribute("role", "region");
+  banner.setAttribute("aria-label", "Installer l'application");
+  const img = document.createElement("img");
+  img.src = "/icones/icone-192.png";
+  img.alt = "";
+  const text = document.createElement("p");
+  text.textContent = `${t("app.install")}${hint ? ` ${hint}` : ""}`;
+  const later = document.createElement("button");
+  later.type = "button";
+  later.className = "btn btn-later";
+  later.textContent = t("app.install.later");
+  later.addEventListener("click", () => dismissInstall());
+  banner.append(img, text);
+  if (onInstall) {
+    const install = document.createElement("button");
+    install.type = "button";
+    install.className = "btn btn-install";
+    install.textContent = t("app.install.button");
+    install.addEventListener("click", async () => {
+      install.disabled = true;
+      await onInstall();
+      banner.remove();
+    });
+    banner.append(install);
+  }
+  banner.append(later);
+  document.body.append(banner);
+}
+
+function setupInstallableApp() {
+  if (window.__PREVIEW__ || !("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return;
+
+  navigator.serviceWorker.register("/sw.js").catch(() => {
+    /* le site fonctionne sans cache hors ligne */
+  });
+
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (standalone) return;
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    showInstallBanner(async () => {
+      event.prompt();
+      try {
+        await event.userChoice;
+      } catch {
+        /* refus ou fermeture : rien à faire */
+      }
+      dismissInstall(180);
+    });
+  });
+
+  // iOS ne déclenche pas beforeinstallprompt : on indique le chemin.
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && /safari/i.test(navigator.userAgent);
+  if (ios) {
+    const show = () => showInstallBanner(null, t("app.install.ios"));
+    if (state.dictionary["app.install"]) show();
+    else document.addEventListener("drrdv:ready", show, { once: true });
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", setupInstallableApp, { once: true });
+} else {
+  setupInstallableApp();
+}
 
 return { $, state, onSessionChange, escapeHtml, t, notify, isMember, formatDateTime, formatTime, formatPrice, boot, applyDictionary, renderAccount, openAuth, subscribe, setupTabs };
 })();

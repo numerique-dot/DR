@@ -188,6 +188,22 @@ un serveur simulé dans le navigateur (données d'exemple, comptes de démonstra
 réseau). Il s'ouvre en double-cliquant, se partage tel quel, et sert à montrer le produit sans
 rien déployer.
 
+## Application web installable (PWA)
+
+Le site s'installe comme une application sur téléphone et ordinateur, sans passer par un magasin
+d'applications : manifeste `public/site.webmanifest`, icônes PNG dans `public/icones/`, service worker
+`public/sw.js`.
+
+- **Installation** : Chrome et Edge affichent une bannière « Installer l'application » (dismissible
+  30 jours) ; Safari iOS reçoit l'indication « Partager → Sur l'écran d'accueil ». Une fois installée,
+  l'application s'ouvre plein écran sur `/reserver`, avec quatre raccourcis (réserver, mes réservations,
+  traduire, espace professionnel).
+- **Hors ligne** : les pages et statiques sont mis en cache ; sans réseau, la dernière version connue
+  s'affiche, sinon la page `/hors-ligne`. Les appels `/api/*` ne sont jamais mis en cache.
+- **Mise à jour** : `sw.js` est servi en `no-cache` ; changer `VERSION` dans ce fichier purge les
+  anciens caches au déploiement suivant.
+- **Icônes** : `node scripts/build-icons.mjs` régénère les PNG depuis `public/icone.svg` (Chromium requis).
+
 ## Mise en production
 
 Guide pas à pas par plateforme (Fly.io, Render, Railway, VPS) : **[docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)**.

@@ -723,3 +723,20 @@ a:visited { color: var(--purple); }
 .banner-warn { border-left-color: var(--red); background: var(--red-wash); }
 .mod-note { display: grid; gap: .3rem; }
 .mod-note textarea { width: 100%; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); font: inherit; resize: vertical; }
+
+/* ---------- 20. Application installable ---------- */
+.offline { max-width: 40rem; padding-block: 4rem; text-align: left; }
+.offline h1 { margin-top: .5rem; }
+.install-banner {
+  position: fixed; inset: auto 0 0 0; z-index: 60;
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: .85rem 1.25rem; padding-bottom: calc(.85rem + env(safe-area-inset-bottom));
+  background: var(--blue); color: #fff;
+  border-top: 3px solid var(--red);
+  box-shadow: 0 -4px 16px rgba(0,0,0,.18);
+}
+.install-banner img { width: 2.5rem; height: 2.5rem; border-radius: .5rem; }
+.install-banner p { flex: 1 1 14rem; margin: 0; font-size: .95rem; }
+.install-banner .btn-install { background: #fff; color: var(--blue); border-color: #fff; }
+.install-banner .btn-later { background: transparent; color: #fff; border-color: rgba(255,255,255,.6); }
+@media (display-mode: standalone) { .install-banner { display: none; } }

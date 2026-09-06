@@ -73,6 +73,7 @@ const MIME = {
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
   ".ico": "image/x-icon",
+  ".png": "image/png",
 };
 
 const COMPRESSIBLE = new Set([".html", ".css", ".js", ".json", ".svg", ".txt", ".xml", ".webmanifest"]);
@@ -141,8 +142,9 @@ async function etagFor(file) {
   return etags.get(key);
 }
 
-function cacheControl(ext) {
-  if (ext === ".woff2") return "public, max-age=31536000, immutable";
+function cacheControl(ext, relative) {
+  if (relative === "sw.js") return "no-cache";
+  if (ext === ".woff2" || ext === ".png") return "public, max-age=31536000, immutable";
   if (ext === ".html") return "no-cache";
   return "public, max-age=3600";
 }
@@ -168,7 +170,7 @@ async function serveStatic(req, res, pathname) {
   const etag = await etagFor(target);
   const headers = {
     "content-type": MIME[ext] ?? "application/octet-stream",
-    "cache-control": cacheControl(ext),
+    "cache-control": cacheControl(ext, relative),
     etag,
     "last-modified": stat.mtime.toUTCString(),
     ...securityHeaders(),

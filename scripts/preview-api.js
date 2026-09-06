@@ -1,6 +1,7 @@
 /* API simulée pour la prévisualisation : même contrat que le serveur, données
    en mémoire, aucun réseau. Les valeurs __XXX__ sont injectées à la construction. */
 (() => {
+  window.__PREVIEW__ = true;
   const DICTIONARIES = __DICTIONARIES__;
   const LOCALES = __LOCALES__;
   const CATEGORIES = __CATEGORIES__;
