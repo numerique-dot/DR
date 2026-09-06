@@ -191,6 +191,8 @@ rien déployer.
 ## Mise en production
 
 Guide pas à pas par plateforme (Fly.io, Render, Railway, VPS) : **[docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)**.
+
+Plan d'expérience utilisateur et feuille de route produit : **[docs/EXPERIENCE.md](docs/EXPERIENCE.md)**.
 Pour une démonstration publique sans Stripe ni clé Anthropic, poser `PUBLIC_DEMO=true`.
 
 ```bash
